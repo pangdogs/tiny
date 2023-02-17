@@ -107,25 +107,6 @@ func (_runtime *RuntimeBehavior) OnEntityMgrRemoveEntity(entityMgr runtime.IEnti
 	_runtime.shutEntity(entity)
 }
 
-// OnEntityMgrEntityFirstAccessComponent 事件回调：实体管理器中的实体首次访问组件
-func (_runtime *RuntimeBehavior) OnEntityMgrEntityFirstAccessComponent(entityMgr runtime.IEntityMgr, entity ec.Entity, component ec.Component) {
-	_comp := ec.UnsafeComponent(component)
-
-	if _comp.GetState() != ec.ComponentState_Attach {
-		return
-	}
-
-	_comp.SetState(ec.ComponentState_Awake)
-
-	if compAwake, ok := component.(_ComponentAwake); ok {
-		internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
-			compAwake.Awake()
-		})
-	}
-
-	_comp.SetState(ec.ComponentState_Start)
-}
-
 // OnEntityMgrEntityAddComponents 事件回调：实体管理器中的实体添加组件
 func (_runtime *RuntimeBehavior) OnEntityMgrEntityAddComponents(entityMgr runtime.IEntityMgr, entity ec.Entity, components []ec.Component) {
 	_runtime.addComponents(entity, components)
