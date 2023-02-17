@@ -85,12 +85,8 @@ func (event *Event) Clean() {
 }
 
 func (event *Event) emit(fun func(delegate util.IfaceCache) bool) {
-	if fun == nil {
+	if fun == nil || !event.opened {
 		return
-	}
-
-	if !event.opened {
-		panic("event closed")
 	}
 
 	if event.emitted >= EventRecursionLimit {
