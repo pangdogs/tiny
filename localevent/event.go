@@ -34,7 +34,6 @@ type Event struct {
 	autoRecover    bool
 	reportError    chan error
 	eventRecursion EventRecursion
-	gcCollector    container.GCCollector
 	emitted        int
 	depth          int
 	opened         bool
@@ -54,7 +53,7 @@ func (event *Event) Init(autoRecover bool, reportError chan error, eventRecursio
 	event.autoRecover = autoRecover
 	event.reportError = reportError
 	event.eventRecursion = eventRecursion
-	event.gcCollector = gcCollector
+	event.subscribers.Init(hookCache, gcCollector)
 	event.inited = true
 
 	event.Open()
@@ -66,7 +65,6 @@ func (event *Event) Open() {
 		panic("event not initialized")
 	}
 
-	event.subscribers.SetGCCollector(event.gcCollector)
 	event.opened = true
 }
 
