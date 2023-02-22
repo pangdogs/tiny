@@ -29,7 +29,7 @@ type Component interface {
 }
 
 type _Component interface {
-	init(name string, entity Entity, inheritor Component, hookCache container.Cache[localevent.Hook])
+	init(name string, entity Entity, inheritor Component, hookAllocator container.Allocator[localevent.Hook])
 	setID(id ID)
 	setState(state ComponentState)
 	getInheritor() Component
@@ -89,12 +89,12 @@ func (comp *ComponentBehavior) String() string {
 		comp.GetState())
 }
 
-func (comp *ComponentBehavior) init(name string, entity Entity, inheritor Component, hookCache container.Cache[localevent.Hook]) {
+func (comp *ComponentBehavior) init(name string, entity Entity, inheritor Component, hookAllocator container.Allocator[localevent.Hook]) {
 	comp.innerGC.Init(comp)
 	comp.name = name
 	comp.entity = entity
 	comp.inheritor = inheritor
-	comp._eventComponentDestroySelf.Init(false, nil, localevent.EventRecursion_NotEmit, hookCache, &comp.innerGC)
+	comp._eventComponentDestroySelf.Init(false, nil, localevent.EventRecursion_NotEmit, hookAllocator, &comp.innerGC)
 }
 
 func (comp *ComponentBehavior) setID(id ID) {
