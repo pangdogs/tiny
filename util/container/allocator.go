@@ -23,14 +23,14 @@ type _Allocator[T any] struct {
 }
 
 // Alloc 分配链表元素
-func (cache *_Allocator[T]) Alloc() *Element[T] {
-	if cache.index >= len(cache.heap) {
-		cache.index = 0
-		cache.heap = make([]Element[T], cache.size)
+func (allocator *_Allocator[T]) Alloc() *Element[T] {
+	if allocator.index >= len(allocator.heap) {
+		allocator.index = 0
+		allocator.heap = make([]Element[T], allocator.size)
 	}
 
-	e := &cache.heap[cache.index]
-	cache.index++
+	e := &allocator.heap[allocator.index]
+	allocator.index++
 
 	return e
 }
