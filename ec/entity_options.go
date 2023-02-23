@@ -23,8 +23,8 @@ type WithEntityOption struct{}
 func (WithEntityOption) Default() EntityOption {
 	return func(o *EntityOptions) {
 		WithEntityOption{}.Inheritor(util.Face[Entity]{})(o)
-		WithEntityOption{}.FaceAnyAllocator(nil)(o)
-		WithEntityOption{}.HookAllocator(nil)(o)
+		WithEntityOption{}.FaceAnyAllocator(container.DefaultAllocator[util.FaceAny]())(o)
+		WithEntityOption{}.HookAllocator(container.DefaultAllocator[localevent.Hook]())(o)
 	}
 }
 
@@ -38,6 +38,9 @@ func (WithEntityOption) Inheritor(v util.Face[Entity]) EntityOption {
 // FaceAnyAllocator 自定义FaceAny内存分配器，用于提高性能，通常传入运行时上下文中的FaceAnyAllocator
 func (WithEntityOption) FaceAnyAllocator(v container.Allocator[util.FaceAny]) EntityOption {
 	return func(o *EntityOptions) {
+		if v == nil {
+			panic("nil allocator")
+		}
 		o.FaceAnyAllocator = v
 	}
 }
@@ -45,6 +48,9 @@ func (WithEntityOption) FaceAnyAllocator(v container.Allocator[util.FaceAny]) En
 // HookAllocator 自定义Hook内存分配器，用于提高性能，通常传入运行时上下文中的HookAllocator
 func (WithEntityOption) HookAllocator(v container.Allocator[localevent.Hook]) EntityOption {
 	return func(o *EntityOptions) {
+		if v == nil {
+			panic("nil allocator")
+		}
 		o.HookAllocator = v
 	}
 }
