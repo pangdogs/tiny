@@ -86,10 +86,7 @@ type List[T any] struct {
 // Init 初始化
 func (l *List[T]) Init(allocator Allocator[T], gcCollector GCCollector) *List[T] {
 	if allocator == nil {
-		panic("nil allocator")
-	}
-	if gcCollector == nil {
-		panic("nil gcCollector")
+		allocator = DefaultAllocator[T]()
 	}
 	l.allocator = allocator
 	l.gcCollector = gcCollector
@@ -100,9 +97,35 @@ func (l *List[T]) Init(allocator Allocator[T], gcCollector GCCollector) *List[T]
 	return l
 }
 
+// SetAllocator 设置链表内存分配器
+func (l *List[T]) SetAllocator(allocator Allocator[T]) {
+	if allocator == nil {
+		allocator = DefaultAllocator[T]()
+	}
+
+	if l.allocator == allocator {
+		return
+	}
+
+	l.allocator = allocator
+}
+
 // GetAllocator 获取链表内存分配器
 func (l *List[T]) GetAllocator() Allocator[T] {
 	return l.allocator
+}
+
+// SetGCCollector 设置GC收集器
+func (l *List[T]) SetGCCollector(gcCollector GCCollector) {
+	if l.gcCollector == gcCollector {
+		return
+	}
+
+	l.gcCollector = gcCollector
+
+	if l.gcCollector != nil {
+		l.gcCollector.CollectGC(l)
+	}
 }
 
 // GetGCCollector 获取GC收集器
@@ -135,7 +158,7 @@ func (l *List[T]) NeedGC() bool {
 // markGC 标记需要GC
 func (l *List[T]) markGC() {
 	l.gcLen++
-	if l.gcLen == 1 {
+	if l.gcLen == 1 && l.gcCollector != nil {
 		l.gcCollector.CollectGC(l)
 	}
 }
