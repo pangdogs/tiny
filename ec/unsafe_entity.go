@@ -36,8 +36,8 @@ func (ue _UnsafeEntity) GetContext() util.IfaceCache {
 	return ue.getContext()
 }
 
-func (ue _UnsafeEntity) SetGCCollector(gcCollect container.GCCollector) {
-	ue.setGCCollector(gcCollect)
+func (ue _UnsafeEntity) SetGCCollector(gcCollector container.GCCollector) {
+	ue.setGCCollector(gcCollector)
 }
 
 func (ue _UnsafeEntity) GetGCCollector() container.GCCollector {

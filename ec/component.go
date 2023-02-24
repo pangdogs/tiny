@@ -31,7 +31,7 @@ type _Component interface {
 	setID(id ID)
 	setState(state ComponentState)
 	getInheritor() Component
-	setGCCollector(gcCollect container.GCCollector)
+	setGCCollector(gcCollector container.GCCollector)
 	eventComponentDestroySelf() localevent.IEvent
 }
 
@@ -113,8 +113,8 @@ func (comp *ComponentBehavior) getInheritor() Component {
 	return comp.inheritor
 }
 
-func (comp *ComponentBehavior) setGCCollector(gcCollect container.GCCollector) {
-	localevent.UnsafeEvent(&comp._eventComponentDestroySelf).SetGCCollector(gcCollect)
+func (comp *ComponentBehavior) setGCCollector(gcCollector container.GCCollector) {
+	localevent.UnsafeEvent(&comp._eventComponentDestroySelf).SetGCCollector(gcCollector)
 }
 
 func (comp *ComponentBehavior) eventComponentDestroySelf() localevent.IEvent {
