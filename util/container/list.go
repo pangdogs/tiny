@@ -142,7 +142,7 @@ func (l *List[T]) GC() {
 	for e := l.Front(); e != nil; {
 		if e.escaped {
 			t := e.next()
-			l.remove(e)
+			l.release(e)
 			e = t
 		} else {
 			e = e.next()
@@ -207,14 +207,13 @@ func (l *List[T]) insertValue(value T, at *Element[T]) *Element[T] {
 	return l.insert(e, at)
 }
 
-// remove 删除元素
-func (l *List[T]) remove(e *Element[T]) *Element[T] {
+// release 释放元素
+func (l *List[T]) release(e *Element[T]) {
 	e._prev._next = e._next
 	e._next._prev = e._prev
 	e.release()
 	l.cap--
 	l.gcLen--
-	return e
 }
 
 // move 移动元素
