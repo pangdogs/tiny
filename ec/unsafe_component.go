@@ -16,8 +16,8 @@ type _UnsafeComponent struct {
 	Component
 }
 
-func (uc _UnsafeComponent) Init(name string, entity Entity, inheritor Component, hookAllocator container.Allocator[localevent.Hook], gcCollector container.GCCollector) {
-	uc.init(name, entity, inheritor, hookAllocator, gcCollector)
+func (uc _UnsafeComponent) Init(name string, entity Entity, composite Component, hookAllocator container.Allocator[localevent.Hook], gcCollector container.GCCollector) {
+	uc.init(name, entity, composite, hookAllocator, gcCollector)
 }
 
 func (uc _UnsafeComponent) SetID(id ID) {
@@ -32,8 +32,8 @@ func (uc _UnsafeComponent) SetState(state ComponentState) {
 	uc.setState(state)
 }
 
-func (uc _UnsafeComponent) GetInheritor() Component {
-	return uc.getInheritor()
+func (uc _UnsafeComponent) GetComposite() Component {
+	return uc.getComposite()
 }
 
 func (uc _UnsafeComponent) SetGCCollector(gcCollector container.GCCollector) {

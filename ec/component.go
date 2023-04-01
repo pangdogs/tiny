@@ -27,10 +27,10 @@ type Component interface {
 }
 
 type _Component interface {
-	init(name string, entity Entity, inheritor Component, hookAllocator container.Allocator[localevent.Hook], gcCollector container.GCCollector)
+	init(name string, entity Entity, composite Component, hookAllocator container.Allocator[localevent.Hook], gcCollector container.GCCollector)
 	setID(id ID)
 	setState(state ComponentState)
-	getInheritor() Component
+	getComposite() Component
 	setGCCollector(gcCollector container.GCCollector)
 	eventComponentDestroySelf() localevent.IEvent
 }
@@ -40,7 +40,7 @@ type ComponentBehavior struct {
 	id                         ID
 	name                       string
 	entity                     Entity
-	inheritor                  Component
+	composite                  Component
 	state                      ComponentState
 	_eventComponentDestroySelf localevent.Event
 }
@@ -69,7 +69,7 @@ func (comp *ComponentBehavior) GetState() ComponentState {
 func (comp *ComponentBehavior) DestroySelf() {
 	switch comp.GetState() {
 	case ComponentState_Awake, ComponentState_Start, ComponentState_Living:
-		emitEventComponentDestroySelf(&comp._eventComponentDestroySelf, comp.inheritor)
+		emitEventComponentDestroySelf(&comp._eventComponentDestroySelf, comp.composite)
 	}
 }
 
@@ -87,10 +87,10 @@ func (comp *ComponentBehavior) String() string {
 		comp.GetState())
 }
 
-func (comp *ComponentBehavior) init(name string, entity Entity, inheritor Component, hookAllocator container.Allocator[localevent.Hook], gcCollector container.GCCollector) {
+func (comp *ComponentBehavior) init(name string, entity Entity, composite Component, hookAllocator container.Allocator[localevent.Hook], gcCollector container.GCCollector) {
 	comp.name = name
 	comp.entity = entity
-	comp.inheritor = inheritor
+	comp.composite = composite
 	comp._eventComponentDestroySelf.Init(false, nil, localevent.EventRecursion_NotEmit, hookAllocator, gcCollector)
 }
 
@@ -109,8 +109,8 @@ func (comp *ComponentBehavior) setState(state ComponentState) {
 	comp.state = state
 }
 
-func (comp *ComponentBehavior) getInheritor() Component {
-	return comp.inheritor
+func (comp *ComponentBehavior) getComposite() Component {
+	return comp.composite
 }
 
 func (comp *ComponentBehavior) setGCCollector(gcCollector container.GCCollector) {

@@ -21,15 +21,15 @@ func NewContext(options ...ContextOption) Context {
 }
 
 func UnsafeNewContext(options ContextOptions) Context {
-	if !options.Inheritor.IsNil() {
-		options.Inheritor.Iface.init(&options)
-		return options.Inheritor.Iface
+	if !options.CompositeFace.IsNil() {
+		options.CompositeFace.Iface.init(&options)
+		return options.CompositeFace.Iface
 	}
 
 	ctx := &ContextBehavior{}
 	ctx.init(&options)
 
-	return ctx.opts.Inheritor.Iface
+	return ctx.opts.CompositeFace.Iface
 }
 
 // Context 运行时上下文接口
@@ -121,15 +121,15 @@ func (ctx *ContextBehavior) init(opts *ContextOptions) {
 
 	ctx.opts = *opts
 
-	if ctx.opts.Inheritor.IsNil() {
-		ctx.opts.Inheritor = util.NewFace[Context](ctx)
+	if ctx.opts.CompositeFace.IsNil() {
+		ctx.opts.CompositeFace = util.NewFace[Context](ctx)
 	}
 
 	ctx.persistIDGenerator = ctx.opts.PersistIDGenerator
 
 	internal.UnsafeContext(&ctx.ContextBehavior).Init(ctx.opts.Context, ctx.opts.AutoRecover, ctx.opts.ReportError)
-	ctx.entityMgr.Init(ctx.getOptions().Inheritor.Iface)
-	ctx.ecTree.init(ctx.opts.Inheritor.Iface, true)
+	ctx.entityMgr.Init(ctx.getOptions().CompositeFace.Iface)
+	ctx.ecTree.init(ctx.opts.CompositeFace.Iface, true)
 }
 
 func (ctx *ContextBehavior) getOptions() *ContextOptions {
