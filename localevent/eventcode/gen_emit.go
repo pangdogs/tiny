@@ -128,7 +128,7 @@ func Bind%[1]s(auto iAuto%[1]s, delegate %[2]s%[8]s) {
 	return %[6]sBindEvent[%[2]s%[8]s](auto.%[1]s(), delegate)
 }
 
-func Bind%[1]s(auto iAuto%[1]s, delegate %[2]s%[8]s, priority int32) {
+func Bind%[1]sWithPriority(auto iAuto%[1]s, delegate %[2]s%[8]s, priority int32) {
 	if auto == nil {
 		panic("nil auto")
 	}
@@ -158,7 +158,7 @@ func Bind%[1]s(auto iAuto%[1]s, delegate %[2]s%[8]s) {
 	return %[6]sBindEvent[%[2]s%[8]s](auto.%[1]s(), delegate)
 }
 
-func Bind%[1]s(auto iAuto%[1]s, delegate %[2]s%[8]s, priority int32) {
+func Bind%[1]sWithPriority(auto iAuto%[1]s, delegate %[2]s%[8]s, priority int32) {
 	if auto == nil {
 		panic("nil auto")
 	}
