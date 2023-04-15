@@ -121,6 +121,20 @@ type iAuto%[1]s interface {
 	%[1]s() %[6]sIEvent
 }
 
+func Bind%[1]s(auto iAuto%[1]s, delegate %[2]s%[8]s) {
+	if auto == nil {
+		panic("nil auto")
+	}
+	return %[6]sBindEvent[%[2]s%[8]s](auto.%[1]s(), delegate)
+}
+
+func Bind%[1]s(auto iAuto%[1]s, delegate %[2]s%[8]s, priority int32) {
+	if auto == nil {
+		panic("nil auto")
+	}
+	return %[6]sBindEventWithPriority[%[2]s%[8]s](auto.%[1]s(), delegate, priority)
+}
+
 func %[9]s%[1]s%[7]s(auto iAuto%[1]s%[4]s) {
 	if auto == nil {
 		panic("nil auto")
@@ -135,6 +149,20 @@ func %[9]s%[1]s%[7]s(auto iAuto%[1]s%[4]s) {
 				fmt.Fprintf(emitCode, `
 type iAuto%[1]s interface {
 	%[1]s() %[6]sIEvent
+}
+
+func Bind%[1]s(auto iAuto%[1]s, delegate %[2]s%[8]s) {
+	if auto == nil {
+		panic("nil auto")
+	}
+	return %[6]sBindEvent[%[2]s%[8]s](auto.%[1]s(), delegate)
+}
+
+func Bind%[1]s(auto iAuto%[1]s, delegate %[2]s%[8]s, priority int32) {
+	if auto == nil {
+		panic("nil auto")
+	}
+	return %[6]sBindEventWithPriority[%[2]s%[8]s](auto.%[1]s(), delegate, priority)
 }
 
 func %[9]s%[1]s%[7]s(auto iAuto%[1]s%[4]s) {
