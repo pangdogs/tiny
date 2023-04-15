@@ -121,14 +121,14 @@ type iAuto%[1]s interface {
 	%[1]s() %[6]sIEvent
 }
 
-func Bind%[1]s(auto iAuto%[1]s, delegate %[2]s%[8]s) {
+func Bind%[1]s(auto iAuto%[1]s, delegate %[2]s%[8]s) %[6]s.Hook {
 	if auto == nil {
 		panic("nil auto")
 	}
 	return %[6]sBindEvent[%[2]s%[8]s](auto.%[1]s(), delegate)
 }
 
-func Bind%[1]sWithPriority(auto iAuto%[1]s, delegate %[2]s%[8]s, priority int32) {
+func Bind%[1]sWithPriority(auto iAuto%[1]s, delegate %[2]s%[8]s, priority int32) %[6]s.Hook {
 	if auto == nil {
 		panic("nil auto")
 	}
@@ -151,14 +151,14 @@ type iAuto%[1]s interface {
 	%[1]s() %[6]sIEvent
 }
 
-func Bind%[1]s(auto iAuto%[1]s, delegate %[2]s%[8]s) {
+func Bind%[1]s(auto iAuto%[1]s, delegate %[2]s%[8]s) %[6]s.Hook {
 	if auto == nil {
 		panic("nil auto")
 	}
 	return %[6]sBindEvent[%[2]s%[8]s](auto.%[1]s(), delegate)
 }
 
-func Bind%[1]sWithPriority(auto iAuto%[1]s, delegate %[2]s%[8]s, priority int32) {
+func Bind%[1]sWithPriority(auto iAuto%[1]s, delegate %[2]s%[8]s, priority int32) %[6]s.Hook {
 	if auto == nil {
 		panic("nil auto")
 	}
