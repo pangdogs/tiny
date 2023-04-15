@@ -108,7 +108,7 @@ func (ctx *ContextBehavior) GetHookAllocator() container.Allocator[localevent.Ho
 
 // ResolveContext 解析上下文
 func (ctx *ContextBehavior) ResolveContext() util.IfaceCache {
-	return ctx.opts.CompositeFace.Cache
+	return util.Iface2Cache[Context](ctx.opts.CompositeFace.Iface)
 }
 
 // CollectGC 收集GC
