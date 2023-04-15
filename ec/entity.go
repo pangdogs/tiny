@@ -110,6 +110,11 @@ func (entity *EntityBehavior) String() string {
 		entity.GetState())
 }
 
+// ResolveContext 解析上下文
+func (entity *EntityBehavior) ResolveContext() util.IfaceCache {
+	return entity.context
+}
+
 func (entity *EntityBehavior) init(opts *EntityOptions) {
 	if opts == nil {
 		panic("nil opts")
@@ -138,10 +143,6 @@ func (entity *EntityBehavior) setID(id ID) {
 
 func (entity *EntityBehavior) setContext(ctx util.IfaceCache) {
 	entity.context = ctx
-}
-
-func (entity *EntityBehavior) getContext() util.IfaceCache {
-	return entity.context
 }
 
 func (entity *EntityBehavior) setGCCollector(gcCollector container.GCCollector) {

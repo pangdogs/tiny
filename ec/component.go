@@ -87,6 +87,11 @@ func (comp *ComponentBehavior) String() string {
 		comp.GetState())
 }
 
+// ResolveContext 解析上下文
+func (comp *ComponentBehavior) ResolveContext() util.IfaceCache {
+	return comp.entity.ResolveContext()
+}
+
 func (comp *ComponentBehavior) init(name string, entity Entity, composite Component, hookAllocator container.Allocator[localevent.Hook], gcCollector container.GCCollector) {
 	comp.name = name
 	comp.entity = entity
@@ -96,10 +101,6 @@ func (comp *ComponentBehavior) init(name string, entity Entity, composite Compon
 
 func (comp *ComponentBehavior) setID(id ID) {
 	comp.id = id
-}
-
-func (comp *ComponentBehavior) getContext() util.IfaceCache {
-	return comp.entity.getContext()
 }
 
 func (comp *ComponentBehavior) setState(state ComponentState) {

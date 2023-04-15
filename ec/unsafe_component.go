@@ -2,7 +2,6 @@ package ec
 
 import (
 	"kit.golaxy.org/tiny/localevent"
-	"kit.golaxy.org/tiny/util"
 	"kit.golaxy.org/tiny/util/container"
 )
 
@@ -22,10 +21,6 @@ func (uc _UnsafeComponent) Init(name string, entity Entity, composite Component,
 
 func (uc _UnsafeComponent) SetID(id ID) {
 	uc.setID(id)
-}
-
-func (uc _UnsafeComponent) GetContext() util.IfaceCache {
-	return uc.getContext()
 }
 
 func (uc _UnsafeComponent) SetState(state ComponentState) {

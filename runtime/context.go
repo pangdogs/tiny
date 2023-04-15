@@ -35,6 +35,7 @@ func UnsafeNewContext(options ContextOptions) Context {
 // Context 运行时上下文接口
 type Context interface {
 	_Context
+	ec.ContextResolver
 	container.GCCollector
 	internal.Context
 	internal.RunningMark
@@ -103,6 +104,11 @@ func (ctx *ContextBehavior) GetFaceAnyAllocator() container.Allocator[util.FaceA
 // GetHookAllocator 获取Hook内存分配器
 func (ctx *ContextBehavior) GetHookAllocator() container.Allocator[localevent.Hook] {
 	return ctx.opts.HookAllocator
+}
+
+// ResolveContext 解析上下文
+func (ctx *ContextBehavior) ResolveContext() util.IfaceCache {
+	return ctx.opts.CompositeFace.Cache
 }
 
 // CollectGC 收集GC
