@@ -5,7 +5,7 @@ type LifecycleComponentAwake interface {
 }
 
 type LifecycleComponentStart interface {
-	Inited()
+	Start()
 }
 
 type LifecycleComponentUpdate = eventUpdate

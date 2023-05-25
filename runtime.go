@@ -176,7 +176,7 @@ func (_runtime *RuntimeBehavior) addComponents(entity ec.Entity, components []ec
 
 		if compStart, ok := components[i].(LifecycleComponentStart); ok {
 			internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
-				compStart.Inited()
+				compStart.Start()
 			})
 		}
 
@@ -322,7 +322,7 @@ func (_runtime *RuntimeBehavior) initEntity(entity ec.Entity) {
 
 		if compStart, ok := comp.(LifecycleComponentStart); ok {
 			internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
-				compStart.Inited()
+				compStart.Start()
 			})
 		}
 
