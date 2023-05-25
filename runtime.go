@@ -5,29 +5,30 @@ import (
 	"kit.golaxy.org/tiny/internal"
 	"kit.golaxy.org/tiny/localevent"
 	"kit.golaxy.org/tiny/runtime"
+	"kit.golaxy.org/tiny/uid"
 	"kit.golaxy.org/tiny/util"
 )
 
 // NewRuntime 创建运行时
-func NewRuntime(runtimeCtx runtime.Context, options ...RuntimeOption) Runtime {
+func NewRuntime(ctx runtime.Context, options ...RuntimeOption) Runtime {
 	opts := RuntimeOptions{}
-	WithRuntimeOption{}.Default()(&opts)
+	WithOption{}.Default()(&opts)
 
 	for i := range options {
 		options[i](&opts)
 	}
 
-	return UnsafeNewRuntime(runtimeCtx, opts)
+	return UnsafeNewRuntime(ctx, opts)
 }
 
-func UnsafeNewRuntime(runtimeCtx runtime.Context, options RuntimeOptions) Runtime {
+func UnsafeNewRuntime(ctx runtime.Context, options RuntimeOptions) Runtime {
 	if !options.CompositeFace.IsNil() {
-		options.CompositeFace.Iface.init(runtimeCtx, &options)
+		options.CompositeFace.Iface.init(ctx, &options)
 		return options.CompositeFace.Iface
 	}
 
 	runtime := &RuntimeBehavior{}
-	runtime.init(runtimeCtx, &options)
+	runtime.init(ctx, &options)
 
 	return runtime.opts.CompositeFace.Iface
 }
@@ -43,7 +44,7 @@ type Runtime interface {
 }
 
 type _Runtime interface {
-	init(runtimeCtx runtime.Context, opts *RuntimeOptions)
+	init(ctx runtime.Context, opts *RuntimeOptions)
 	getOptions() *RuntimeOptions
 }
 
@@ -51,7 +52,7 @@ type _Runtime interface {
 type RuntimeBehavior struct {
 	opts            RuntimeOptions
 	ctx             runtime.Context
-	hooksMap        map[ec.ID][3]localevent.Hook
+	hooksMap        map[uid.Id][3]localevent.Hook
 	processQueue    chan func()
 	eventUpdate     localevent.Event
 	eventLateUpdate localevent.Event
@@ -67,16 +68,16 @@ func (_runtime *RuntimeBehavior) ResolveContext() util.IfaceCache {
 	return util.Iface2Cache[runtime.Context](_runtime.ctx)
 }
 
-func (_runtime *RuntimeBehavior) init(runtimeCtx runtime.Context, opts *RuntimeOptions) {
-	if runtimeCtx == nil {
-		panic("nil runtimeCtx")
+func (_runtime *RuntimeBehavior) init(ctx runtime.Context, opts *RuntimeOptions) {
+	if ctx == nil {
+		panic("nil ctx")
 	}
 
 	if opts == nil {
 		panic("nil opts")
 	}
 
-	if !internal.UnsafeContext(runtimeCtx).Paired() {
+	if !runtime.UnsafeContext(ctx).MarkPaired(true) {
 		panic("runtime context already paired")
 	}
 
@@ -86,13 +87,13 @@ func (_runtime *RuntimeBehavior) init(runtimeCtx runtime.Context, opts *RuntimeO
 		_runtime.opts.CompositeFace = util.NewFace[Runtime](_runtime)
 	}
 
-	_runtime.ctx = runtimeCtx
-	_runtime.hooksMap = make(map[ec.ID][3]localevent.Hook)
+	_runtime.ctx = ctx
+	_runtime.hooksMap = make(map[uid.Id][3]localevent.Hook)
 
-	_runtime.eventUpdate.Init(runtimeCtx.GetAutoRecover(), runtimeCtx.GetReportError(), localevent.EventRecursion_Disallow, runtimeCtx.GetHookAllocator(), nil)
-	_runtime.eventLateUpdate.Init(runtimeCtx.GetAutoRecover(), runtimeCtx.GetReportError(), localevent.EventRecursion_Disallow, runtimeCtx.GetHookAllocator(), nil)
+	_runtime.eventUpdate.Init(ctx.GetAutoRecover(), ctx.GetReportError(), localevent.EventRecursion_Disallow, ctx.GetHookAllocator(), nil)
+	_runtime.eventLateUpdate.Init(ctx.GetAutoRecover(), ctx.GetReportError(), localevent.EventRecursion_Disallow, ctx.GetHookAllocator(), nil)
 
-	if _runtime.opts.EnableAutoRun {
+	if _runtime.opts.AutoRun {
 		_runtime.opts.CompositeFace.Iface.Run()
 	}
 }
@@ -125,17 +126,17 @@ func (_runtime *RuntimeBehavior) OnEntityMgrEntityRemoveComponent(entityMgr runt
 
 // OnEntityDestroySelf 事件回调：实体销毁自身
 func (_runtime *RuntimeBehavior) OnEntityDestroySelf(entity ec.Entity) {
-	_runtime.ctx.GetEntityMgr().RemoveEntity(entity.GetID())
+	_runtime.ctx.GetEntityMgr().RemoveEntity(entity.GetId())
 }
 
 // OnComponentDestroySelf 事件回调：组件销毁自身
 func (_runtime *RuntimeBehavior) OnComponentDestroySelf(comp ec.Component) {
-	comp.GetEntity().RemoveComponentByID(comp.GetID())
+	comp.GetEntity().RemoveComponentById(comp.GetId())
 }
 
 func (_runtime *RuntimeBehavior) addComponents(entity ec.Entity, components []ec.Component) {
 	switch entity.GetState() {
-	case ec.EntityState_Init, ec.EntityState_Start, ec.EntityState_Living:
+	case ec.EntityState_Init, ec.EntityState_Inited, ec.EntityState_Living:
 	default:
 		return
 	}
@@ -151,7 +152,7 @@ func (_runtime *RuntimeBehavior) addComponents(entity ec.Entity, components []ec
 			continue
 		}
 
-		if compAwake, ok := components[i].(_ComponentAwake); ok {
+		if compAwake, ok := components[i].(LifecycleComponentAwake); ok {
 			internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
 				compAwake.Awake()
 			})
@@ -161,7 +162,7 @@ func (_runtime *RuntimeBehavior) addComponents(entity ec.Entity, components []ec
 	}
 
 	switch entity.GetState() {
-	case ec.EntityState_Init, ec.EntityState_Start, ec.EntityState_Living:
+	case ec.EntityState_Init, ec.EntityState_Inited, ec.EntityState_Living:
 	default:
 		return
 	}
@@ -173,9 +174,9 @@ func (_runtime *RuntimeBehavior) addComponents(entity ec.Entity, components []ec
 			continue
 		}
 
-		if compStart, ok := components[i].(_ComponentStart); ok {
+		if compStart, ok := components[i].(LifecycleComponentStart); ok {
 			internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
-				compStart.Start()
+				compStart.Inited()
 			})
 		}
 
@@ -190,7 +191,7 @@ func (_runtime *RuntimeBehavior) removeComponent(component ec.Component) {
 		return
 	}
 
-	if compShut, ok := component.(_ComponentShut); ok {
+	if compShut, ok := component.(LifecycleComponentShut); ok {
 		internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
 			compShut.Shut()
 		})
@@ -206,15 +207,15 @@ func (_runtime *RuntimeBehavior) connectEntity(entity ec.Entity) {
 
 	var hooks [3]localevent.Hook
 
-	if entityUpdate, ok := entity.(_EntityUpdate); ok {
-		hooks[0] = localevent.BindEvent[_EntityUpdate](&_runtime.eventUpdate, entityUpdate)
+	if entityUpdate, ok := entity.(LifecycleEntityUpdate); ok {
+		hooks[0] = localevent.BindEvent[LifecycleEntityUpdate](&_runtime.eventUpdate, entityUpdate)
 	}
-	if entityLateUpdate, ok := entity.(_EntityLateUpdate); ok {
-		hooks[1] = localevent.BindEvent[_EntityLateUpdate](&_runtime.eventLateUpdate, entityLateUpdate)
+	if entityLateUpdate, ok := entity.(LifecycleEntityLateUpdate); ok {
+		hooks[1] = localevent.BindEvent[LifecycleEntityLateUpdate](&_runtime.eventLateUpdate, entityLateUpdate)
 	}
 	hooks[2] = localevent.BindEvent[ec.EventEntityDestroySelf](ec.UnsafeEntity(entity).EventEntityDestroySelf(), _runtime)
 
-	_runtime.hooksMap[entity.GetID()] = hooks
+	_runtime.hooksMap[entity.GetId()] = hooks
 
 	entity.RangeComponents(func(comp ec.Component) bool {
 		_runtime.connectComponent(comp)
@@ -230,9 +231,9 @@ func (_runtime *RuntimeBehavior) disconnectEntity(entity ec.Entity) {
 		return true
 	})
 
-	hooks, ok := _runtime.hooksMap[entity.GetID()]
+	hooks, ok := _runtime.hooksMap[entity.GetId()]
 	if ok {
-		delete(_runtime.hooksMap, entity.GetID())
+		delete(_runtime.hooksMap, entity.GetId())
 
 		for i := range hooks {
 			hooks[i].Unbind()
@@ -249,23 +250,23 @@ func (_runtime *RuntimeBehavior) connectComponent(comp ec.Component) {
 
 	var hooks [3]localevent.Hook
 
-	if compUpdate, ok := comp.(_ComponentUpdate); ok {
-		hooks[0] = localevent.BindEvent[_ComponentUpdate](&_runtime.eventUpdate, compUpdate)
+	if compUpdate, ok := comp.(LifecycleComponentUpdate); ok {
+		hooks[0] = localevent.BindEvent[LifecycleComponentUpdate](&_runtime.eventUpdate, compUpdate)
 	}
-	if compLateUpdate, ok := comp.(_ComponentLateUpdate); ok {
-		hooks[1] = localevent.BindEvent[_ComponentLateUpdate](&_runtime.eventLateUpdate, compLateUpdate)
+	if compLateUpdate, ok := comp.(LifecycleComponentLateUpdate); ok {
+		hooks[1] = localevent.BindEvent[LifecycleComponentLateUpdate](&_runtime.eventLateUpdate, compLateUpdate)
 	}
 	hooks[2] = localevent.BindEvent[ec.EventComponentDestroySelf](ec.UnsafeComponent(comp).EventComponentDestroySelf(), _runtime)
 
-	_runtime.hooksMap[comp.GetID()] = hooks
+	_runtime.hooksMap[comp.GetId()] = hooks
 
 	ec.UnsafeComponent(comp).SetState(ec.ComponentState_Awake)
 }
 
 func (_runtime *RuntimeBehavior) disconnectComponent(comp ec.Component) {
-	hooks, ok := _runtime.hooksMap[comp.GetID()]
+	hooks, ok := _runtime.hooksMap[comp.GetId()]
 	if ok {
-		delete(_runtime.hooksMap, comp.GetID())
+		delete(_runtime.hooksMap, comp.GetId())
 
 		for i := range hooks {
 			hooks[i].Unbind()
@@ -280,7 +281,7 @@ func (_runtime *RuntimeBehavior) initEntity(entity ec.Entity) {
 		return
 	}
 
-	if entityInit, ok := entity.(_EntityInit); ok {
+	if entityInit, ok := entity.(LifecycleEntityInit); ok {
 		internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
 			entityInit.Init()
 		})
@@ -297,7 +298,7 @@ func (_runtime *RuntimeBehavior) initEntity(entity ec.Entity) {
 			return true
 		}
 
-		if compAwake, ok := comp.(_ComponentAwake); ok {
+		if compAwake, ok := comp.(LifecycleComponentAwake); ok {
 			internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
 				compAwake.Awake()
 			})
@@ -319,9 +320,9 @@ func (_runtime *RuntimeBehavior) initEntity(entity ec.Entity) {
 			return true
 		}
 
-		if compStart, ok := comp.(_ComponentStart); ok {
+		if compStart, ok := comp.(LifecycleComponentStart); ok {
 			internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
-				compStart.Start()
+				compStart.Inited()
 			})
 		}
 
@@ -334,15 +335,15 @@ func (_runtime *RuntimeBehavior) initEntity(entity ec.Entity) {
 		return
 	}
 
-	ec.UnsafeEntity(entity).SetState(ec.EntityState_Start)
+	ec.UnsafeEntity(entity).SetState(ec.EntityState_Inited)
 
-	if entityInitFin, ok := entity.(_EntityStart); ok {
+	if entityInited, ok := entity.(LifecycleEntityInited); ok {
 		internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
-			entityInitFin.Start()
+			entityInited.Inited()
 		})
 	}
 
-	if entity.GetState() != ec.EntityState_Start {
+	if entity.GetState() != ec.EntityState_Inited {
 		return
 	}
 
@@ -354,7 +355,7 @@ func (_runtime *RuntimeBehavior) shutEntity(entity ec.Entity) {
 		return
 	}
 
-	if entityShut, ok := entity.(_EntityShut); ok {
+	if entityShut, ok := entity.(LifecycleEntityShut); ok {
 		internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
 			entityShut.Shut()
 		})
@@ -367,7 +368,7 @@ func (_runtime *RuntimeBehavior) shutEntity(entity ec.Entity) {
 			return true
 		}
 
-		if compShut, ok := comp.(_ComponentShut); ok {
+		if compShut, ok := comp.(LifecycleComponentShut); ok {
 			internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
 				compShut.Shut()
 			})
@@ -380,9 +381,9 @@ func (_runtime *RuntimeBehavior) shutEntity(entity ec.Entity) {
 
 	ec.UnsafeEntity(entity).SetState(ec.EntityState_Death)
 
-	if entityShutFin, ok := entity.(_EntityDestroy); ok {
+	if entityDestroy, ok := entity.(LifecycleEntityDestroy); ok {
 		internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
-			entityShutFin.Destroy()
+			entityDestroy.Destroy()
 		})
 	}
 }

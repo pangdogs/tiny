@@ -1,17 +1,17 @@
 package tiny
 
-type _ComponentAwake interface {
+type LifecycleComponentAwake interface {
 	Awake()
 }
 
-type _ComponentStart interface {
-	Start()
+type LifecycleComponentStart interface {
+	Inited()
 }
 
-type _ComponentUpdate = eventUpdate
+type LifecycleComponentUpdate = eventUpdate
 
-type _ComponentLateUpdate = eventLateUpdate
+type LifecycleComponentLateUpdate = eventLateUpdate
 
-type _ComponentShut interface {
+type LifecycleComponentShut interface {
 	Shut()
 }

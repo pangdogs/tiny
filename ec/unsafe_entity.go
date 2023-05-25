@@ -2,6 +2,7 @@ package ec
 
 import (
 	"kit.golaxy.org/tiny/localevent"
+	"kit.golaxy.org/tiny/uid"
 	"kit.golaxy.org/tiny/util"
 	"kit.golaxy.org/tiny/util/container"
 )
@@ -24,8 +25,8 @@ func (ue _UnsafeEntity) GetOptions() *EntityOptions {
 	return ue.getOptions()
 }
 
-func (ue _UnsafeEntity) SetID(id ID) {
-	ue.setID(id)
+func (ue _UnsafeEntity) SetId(id uid.Id) {
+	ue.setId(id)
 }
 
 func (ue _UnsafeEntity) SetContext(ctx util.IfaceCache) {

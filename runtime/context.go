@@ -4,6 +4,7 @@ import (
 	"kit.golaxy.org/tiny/ec"
 	"kit.golaxy.org/tiny/internal"
 	"kit.golaxy.org/tiny/localevent"
+	"kit.golaxy.org/tiny/uid"
 	"kit.golaxy.org/tiny/util"
 	"kit.golaxy.org/tiny/util/container"
 )
@@ -11,7 +12,7 @@ import (
 // NewContext 创建运行时上下文
 func NewContext(options ...ContextOption) Context {
 	opts := ContextOptions{}
-	WithContextOption{}.Default()(&opts)
+	WithOption{}.Default()(&opts)
 
 	for i := range options {
 		options[i](&opts)
@@ -38,11 +39,11 @@ type Context interface {
 	ec.ContextResolver
 	container.GCCollector
 	internal.Context
-	internal.RunningMark
-	_Call
+	internal.RunningState
+	Caller
 
-	// GenPersistID 生成持久化ID
-	GenPersistID() ec.ID
+	// GenPersistId 生成持久化Id
+	GenPersistId() uid.Id
 	// GetFrame 获取帧
 	GetFrame() Frame
 	// GetEntityMgr 获取实体管理器
@@ -59,26 +60,27 @@ type _Context interface {
 	init(opts *ContextOptions)
 	getOptions() *ContextOptions
 	setFrame(frame Frame)
+	setCallee(callee Callee)
 	gc()
 }
 
 // ContextBehavior 运行时上下文行为，在需要扩展运行时上下文能力时，匿名嵌入至运行时上下文结构体中
 type ContextBehavior struct {
 	internal.ContextBehavior
-	internal.RunningMarkBehavior
+	internal.RunningStateBehavior
 	opts               ContextOptions
-	persistIDGenerator ec.ID
+	persistIdGenerator uid.Id
 	frame              Frame
 	entityMgr          _EntityMgr
 	ecTree             ECTree
-	callee             internal.Callee
+	callee             Callee
 	gcList             []container.GC
 }
 
-// GenPersistID 生成持久化ID
-func (ctx *ContextBehavior) GenPersistID() ec.ID {
-	ctx.persistIDGenerator++
-	return ctx.persistIDGenerator
+// GenPersistId 生成持久化Id
+func (ctx *ContextBehavior) GenPersistId() uid.Id {
+	ctx.persistIdGenerator++
+	return ctx.persistIdGenerator
 }
 
 // GetFrame 获取帧
@@ -131,7 +133,7 @@ func (ctx *ContextBehavior) init(opts *ContextOptions) {
 		ctx.opts.CompositeFace = util.NewFace[Context](ctx)
 	}
 
-	ctx.persistIDGenerator = ctx.opts.PersistIDGenerator
+	ctx.persistIdGenerator = ctx.opts.PersistIdGenerator
 
 	internal.UnsafeContext(&ctx.ContextBehavior).Init(ctx.opts.Context, ctx.opts.AutoRecover, ctx.opts.ReportError)
 	ctx.entityMgr.Init(ctx.getOptions().CompositeFace.Iface)
@@ -144,4 +146,8 @@ func (ctx *ContextBehavior) getOptions() *ContextOptions {
 
 func (ctx *ContextBehavior) setFrame(frame Frame) {
 	ctx.frame = frame
+}
+
+func (ctx *ContextBehavior) setCallee(callee Callee) {
+	ctx.callee = callee
 }

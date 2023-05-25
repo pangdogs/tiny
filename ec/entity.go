@@ -3,6 +3,7 @@ package ec
 import (
 	"fmt"
 	"kit.golaxy.org/tiny/localevent"
+	"kit.golaxy.org/tiny/uid"
 	"kit.golaxy.org/tiny/util"
 	"kit.golaxy.org/tiny/util/container"
 )
@@ -10,7 +11,7 @@ import (
 // NewEntity 创建实体
 func NewEntity(options ...EntityOption) Entity {
 	opts := EntityOptions{}
-	WithEntityOption{}.Default()(&opts)
+	WithOption{}.Default()(&opts)
 
 	for i := range options {
 		options[i](&opts)
@@ -37,8 +38,8 @@ type Entity interface {
 	_ComponentMgr
 	ContextResolver
 
-	// GetID 获取实体ID
-	GetID() ID
+	// GetId 获取实体Id
+	GetId() uid.Id
 	// GetParent 获取在运行时上下文的主EC树上的父实体
 	GetParent() (Entity, bool)
 	// GetState 获取实体状态
@@ -52,7 +53,7 @@ type Entity interface {
 type _Entity interface {
 	init(opts *EntityOptions)
 	getOptions() *EntityOptions
-	setID(id ID)
+	setId(id uid.Id)
 	setContext(ctx util.IfaceCache)
 	setGCCollector(gcCollector container.GCCollector)
 	getGCCollector() container.GCCollector
@@ -63,7 +64,7 @@ type _Entity interface {
 
 // EntityBehavior 实体行为，在需要扩展实体能力时，匿名嵌入至实体结构体中
 type EntityBehavior struct {
-	id                          ID
+	id                          uid.Id
 	opts                        EntityOptions
 	context                     util.IfaceCache
 	parent                      Entity
@@ -74,8 +75,8 @@ type EntityBehavior struct {
 	eventCompMgrRemoveComponent localevent.Event
 }
 
-// GetID 获取实体ID
-func (entity *EntityBehavior) GetID() ID {
+// GetId 获取实体Id
+func (entity *EntityBehavior) GetId() uid.Id {
 	return entity.id
 }
 
@@ -92,21 +93,21 @@ func (entity *EntityBehavior) GetState() EntityState {
 // DestroySelf 销毁自身
 func (entity *EntityBehavior) DestroySelf() {
 	switch entity.GetState() {
-	case EntityState_Init, EntityState_Start, EntityState_Living:
+	case EntityState_Init, EntityState_Inited, EntityState_Living:
 		emitEventEntityDestroySelf(&entity._eventEntityDestroySelf, entity.opts.CompositeFace.Iface)
 	}
 }
 
 // String 字符串化
 func (entity *EntityBehavior) String() string {
-	var parentID ID
+	var parentId uid.Id
 	if parent, ok := entity.GetParent(); ok {
-		parentID = parent.GetID()
+		parentId = parent.GetId()
 	}
 
-	return fmt.Sprintf("[ID:%d Parent:%d State:%s]",
-		entity.GetID(),
-		parentID,
+	return fmt.Sprintf("[Id:%d Parent:%d State:%s]",
+		entity.GetId(),
+		parentId,
 		entity.GetState())
 }
 
@@ -137,7 +138,7 @@ func (entity *EntityBehavior) getOptions() *EntityOptions {
 	return &entity.opts
 }
 
-func (entity *EntityBehavior) setID(id ID) {
+func (entity *EntityBehavior) setId(id uid.Id) {
 	entity.id = id
 }
 

@@ -6,6 +6,9 @@ import (
 	"kit.golaxy.org/tiny/util/container"
 )
 
+// WithOption 所有选项设置器
+type WithOption struct{}
+
 // EntityOptions 创建实体的所有选项
 type EntityOptions struct {
 	CompositeFace    util.Face[Entity]                    // 扩展者，在扩展实体自身能力时使用
@@ -17,49 +20,46 @@ type EntityOptions struct {
 // EntityOption 创建实体的选项设置器
 type EntityOption func(o *EntityOptions)
 
-// WithEntityOption 创建实体的所有选项设置器
-type WithEntityOption struct{}
-
 // Default 默认值
-func (WithEntityOption) Default() EntityOption {
+func (WithOption) Default() EntityOption {
 	return func(o *EntityOptions) {
-		WithEntityOption{}.CompositeFace(util.Face[Entity]{})(o)
-		WithEntityOption{}.FaceAnyAllocator(container.DefaultAllocator[util.FaceAny]())(o)
-		WithEntityOption{}.HookAllocator(container.DefaultAllocator[localevent.Hook]())(o)
-		WithEntityOption{}.GCCollector(nil)(o)
+		WithOption{}.CompositeFace(util.Face[Entity]{})(o)
+		WithOption{}.FaceAnyAllocator(container.DefaultAllocator[util.FaceAny]())(o)
+		WithOption{}.HookAllocator(container.DefaultAllocator[localevent.Hook]())(o)
+		WithOption{}.GCCollector(nil)(o)
 	}
 }
 
 // CompositeFace 扩展者，在扩展实体自身能力时使用
-func (WithEntityOption) CompositeFace(v util.Face[Entity]) EntityOption {
+func (WithOption) CompositeFace(face util.Face[Entity]) EntityOption {
 	return func(o *EntityOptions) {
-		o.CompositeFace = v
+		o.CompositeFace = face
 	}
 }
 
 // FaceAnyAllocator 自定义FaceAny内存分配器，用于提高性能，通常传入运行时上下文中的FaceAnyAllocator
-func (WithEntityOption) FaceAnyAllocator(v container.Allocator[util.FaceAny]) EntityOption {
+func (WithOption) FaceAnyAllocator(allocator container.Allocator[util.FaceAny]) EntityOption {
 	return func(o *EntityOptions) {
-		if v == nil {
+		if allocator == nil {
 			panic("nil allocator")
 		}
-		o.FaceAnyAllocator = v
+		o.FaceAnyAllocator = allocator
 	}
 }
 
 // HookAllocator 自定义Hook内存分配器，用于提高性能，通常传入运行时上下文中的HookAllocator
-func (WithEntityOption) HookAllocator(v container.Allocator[localevent.Hook]) EntityOption {
+func (WithOption) HookAllocator(allocator container.Allocator[localevent.Hook]) EntityOption {
 	return func(o *EntityOptions) {
-		if v == nil {
+		if allocator == nil {
 			panic("nil allocator")
 		}
-		o.HookAllocator = v
+		o.HookAllocator = allocator
 	}
 }
 
 // GCCollector 自定义GC收集器，通常不传或者传入运行时上下文
-func (WithEntityOption) GCCollector(v container.GCCollector) EntityOption {
+func (WithOption) GCCollector(collector container.GCCollector) EntityOption {
 	return func(o *EntityOptions) {
-		o.GCCollector = v
+		o.GCCollector = collector
 	}
 }

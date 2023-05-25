@@ -30,14 +30,14 @@ func (uc _UnsafeContext) SetCallee(callee Callee) {
 	uc.setCallee(callee)
 }
 
-func (uc _UnsafeContext) MarkRunning() bool {
-	return internal.UnsafeRunningMark(uc.Context).MarkRunning()
-}
-
-func (uc _UnsafeContext) MarkShutdown() bool {
-	return internal.UnsafeRunningMark(uc.Context).MarkShutdown()
-}
-
 func (uc _UnsafeContext) GC() {
 	uc.gc()
+}
+
+func (uc _UnsafeContext) MarkRunning(v bool) bool {
+	return internal.UnsafeRunningState(uc.Context).MarkRunning(v)
+}
+
+func (uc _UnsafeContext) MarkPaired(v bool) bool {
+	return internal.UnsafeContext(uc.Context).MarkPaired(v)
 }

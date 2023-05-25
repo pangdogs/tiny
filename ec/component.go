@@ -3,6 +3,7 @@ package ec
 import (
 	"fmt"
 	"kit.golaxy.org/tiny/localevent"
+	"kit.golaxy.org/tiny/uid"
 	"kit.golaxy.org/tiny/util"
 	"kit.golaxy.org/tiny/util/container"
 )
@@ -12,8 +13,8 @@ type Component interface {
 	_Component
 	ContextResolver
 
-	// GetID 获取组件ID
-	GetID() ID
+	// GetId 获取组件Id
+	GetId() uid.Id
 	// GetName 获取组件名称
 	GetName() string
 	// GetEntity 获取组件依附的实体
@@ -28,7 +29,7 @@ type Component interface {
 
 type _Component interface {
 	init(name string, entity Entity, composite Component, hookAllocator container.Allocator[localevent.Hook], gcCollector container.GCCollector)
-	setID(id ID)
+	setId(id uid.Id)
 	setState(state ComponentState)
 	getComposite() Component
 	setGCCollector(gcCollector container.GCCollector)
@@ -37,7 +38,7 @@ type _Component interface {
 
 // ComponentBehavior 组件行为，需要在开发新组件时，匿名嵌入至组件结构体中
 type ComponentBehavior struct {
-	id                         ID
+	id                         uid.Id
 	name                       string
 	entity                     Entity
 	composite                  Component
@@ -45,8 +46,8 @@ type ComponentBehavior struct {
 	_eventComponentDestroySelf localevent.Event
 }
 
-// GetID 获取组件ID
-func (comp *ComponentBehavior) GetID() ID {
+// GetId 获取组件Id
+func (comp *ComponentBehavior) GetId() uid.Id {
 	return comp.id
 }
 
@@ -75,15 +76,15 @@ func (comp *ComponentBehavior) DestroySelf() {
 
 // String 字符串化
 func (comp *ComponentBehavior) String() string {
-	var entityID ID
+	var entityId uid.Id
 	if entity := comp.GetEntity(); entity != nil {
-		entityID = entity.GetID()
+		entityId = entity.GetId()
 	}
 
-	return fmt.Sprintf("[ID:%d Name:%s Entity:%d State:%s]",
-		comp.GetID(),
+	return fmt.Sprintf("[Id:%d Name:%s Entity:%d State:%s]",
+		comp.GetId(),
 		comp.GetName(),
-		entityID,
+		entityId,
 		comp.GetState())
 }
 
@@ -99,7 +100,7 @@ func (comp *ComponentBehavior) init(name string, entity Entity, composite Compon
 	comp._eventComponentDestroySelf.Init(false, nil, localevent.EventRecursion_NotEmit, hookAllocator, gcCollector)
 }
 
-func (comp *ComponentBehavior) setID(id ID) {
+func (comp *ComponentBehavior) setId(id uid.Id) {
 	comp.id = id
 }
 

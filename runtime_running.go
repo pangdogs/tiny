@@ -10,8 +10,8 @@ import (
 
 // Run 运行，返回的channel用于线程同步，可以阻塞等待至运行结束
 func (_runtime *RuntimeBehavior) Run() <-chan struct{} {
-	if !runtime.UnsafeContext(_runtime.ctx).MarkRunning() {
-		panic("_runtime already running")
+	if !runtime.UnsafeContext(_runtime.ctx).MarkRunning(true) {
+		panic("runtime already running")
 	}
 
 	shutChan := make(chan struct{}, 1)
@@ -58,7 +58,7 @@ func (_runtime *RuntimeBehavior) running(shutChan chan struct{}) {
 			parentCtx.GetWaitGroup().Done()
 		}
 
-		runtime.UnsafeContext(_runtime.ctx).MarkShutdown()
+		runtime.UnsafeContext(_runtime.ctx).MarkRunning(false)
 		shutChan <- struct{}{}
 	}()
 
@@ -79,28 +79,28 @@ func (_runtime *RuntimeBehavior) running(shutChan chan struct{}) {
 }
 
 func (_runtime *RuntimeBehavior) loopStarted() (hooks [4]localevent.Hook) {
-	runtimeCtx := _runtime.ctx
+	ctx := _runtime.ctx
 	frame := _runtime.opts.Frame
 
 	if frame != nil {
 		runtime.UnsafeFrame(frame).RunningBegin()
 	}
 
-	hooks[0] = localevent.BindEvent[runtime.EventEntityMgrAddEntity](runtimeCtx.GetEntityMgr().EventEntityMgrAddEntity(), _runtime)
-	hooks[1] = localevent.BindEvent[runtime.EventEntityMgrRemoveEntity](runtimeCtx.GetEntityMgr().EventEntityMgrRemoveEntity(), _runtime)
-	hooks[2] = localevent.BindEvent[runtime.EventEntityMgrEntityAddComponents](runtimeCtx.GetEntityMgr().EventEntityMgrEntityAddComponents(), _runtime)
-	hooks[3] = localevent.BindEvent[runtime.EventEntityMgrEntityRemoveComponent](runtimeCtx.GetEntityMgr().EventEntityMgrEntityRemoveComponent(), _runtime)
+	hooks[0] = localevent.BindEvent[runtime.EventEntityMgrAddEntity](ctx.GetEntityMgr().EventEntityMgrAddEntity(), _runtime)
+	hooks[1] = localevent.BindEvent[runtime.EventEntityMgrRemoveEntity](ctx.GetEntityMgr().EventEntityMgrRemoveEntity(), _runtime)
+	hooks[2] = localevent.BindEvent[runtime.EventEntityMgrEntityAddComponents](ctx.GetEntityMgr().EventEntityMgrEntityAddComponents(), _runtime)
+	hooks[3] = localevent.BindEvent[runtime.EventEntityMgrEntityRemoveComponent](ctx.GetEntityMgr().EventEntityMgrEntityRemoveComponent(), _runtime)
 
-	runtimeCtx.GetEntityMgr().RangeEntities(func(entity ec.Entity) bool {
-		internal.CallOuterNoRet(runtimeCtx.GetAutoRecover(), runtimeCtx.GetReportError(), func() {
-			_runtime.OnEntityMgrAddEntity(runtimeCtx.GetEntityMgr(), entity)
+	ctx.GetEntityMgr().RangeEntities(func(entity ec.Entity) bool {
+		internal.CallOuterNoRet(ctx.GetAutoRecover(), ctx.GetReportError(), func() {
+			_runtime.OnEntityMgrAddEntity(ctx.GetEntityMgr(), entity)
 		})
 		return true
 	})
 
-	if callback := runtime.UnsafeContext(runtimeCtx).GetOptions().StartedCallback; callback != nil {
-		internal.CallOuterNoRet(runtimeCtx.GetAutoRecover(), runtimeCtx.GetReportError(), func() {
-			callback(runtimeCtx)
+	if callback := runtime.UnsafeContext(ctx).GetOptions().StartedCallback; callback != nil {
+		internal.CallOuterNoRet(ctx.GetAutoRecover(), ctx.GetReportError(), func() {
+			callback(ctx)
 		})
 	}
 
@@ -108,12 +108,12 @@ func (_runtime *RuntimeBehavior) loopStarted() (hooks [4]localevent.Hook) {
 }
 
 func (_runtime *RuntimeBehavior) loopStopped(hooks [4]localevent.Hook) {
-	runtimeCtx := _runtime.ctx
+	ctx := _runtime.ctx
 	frame := _runtime.opts.Frame
 
-	runtimeCtx.GetEntityMgr().ReverseRangeEntities(func(entity ec.Entity) bool {
-		internal.CallOuterNoRet(runtimeCtx.GetAutoRecover(), runtimeCtx.GetReportError(), func() {
-			_runtime.OnEntityMgrRemoveEntity(runtimeCtx.GetEntityMgr(), entity)
+	ctx.GetEntityMgr().ReverseRangeEntities(func(entity ec.Entity) bool {
+		internal.CallOuterNoRet(ctx.GetAutoRecover(), ctx.GetReportError(), func() {
+			_runtime.OnEntityMgrRemoveEntity(ctx.GetEntityMgr(), entity)
 		})
 		return true
 	})
@@ -176,22 +176,23 @@ func (_runtime *RuntimeBehavior) loopWithFrame() {
 
 		for curFrames := uint64(1); ; {
 			if totalFrames > 0 && curFrames >= totalFrames {
-				_runtime.opts.CompositeFace.Iface.Stop()
+				_runtime.ctx.GetCancelFunc()()
 				return
 			}
 
 			select {
 			case <-updateTicker.C:
-				internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
+				func() {
+					defer func() {
+						recover()
+					}()
+
 					select {
 					case _runtime.processQueue <- _runtime.frameUpdate:
 						curFrames++
-						return
 					default:
-						panic("process queue is full")
 					}
-				})
-
+				}()
 			case <-_runtime.ctx.Done():
 				return
 			}
