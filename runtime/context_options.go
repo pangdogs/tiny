@@ -18,11 +18,11 @@ type ContextOptions struct {
 	AutoRecover        bool                                 // 是否开启panic时自动恢复
 	ReportError        chan error                           // panic时错误写入的error channel
 	PersistIdGenerator uid.Id                               // 持久化Id生成器初始值
-	StartedCallback    func(ctx Context)                    // 启动运行时回调函数
-	StoppingCallback   func(ctx Context)                    // 开始停止运行时回调函数
-	StoppedCallback    func(ctx Context)                    // 完全停止运行时回调函数
-	FrameBeginCallback func(ctx Context)                    // 帧开始时的回调函数
-	FrameEndCallback   func(ctx Context)                    // 帧结束时的回调函数
+	StartedCb          func(ctx Context)                    // 启动运行时回调函数
+	StoppingCb         func(ctx Context)                    // 开始停止运行时回调函数
+	StoppedCb          func(ctx Context)                    // 完全停止运行时回调函数
+	FrameBeginCb       func(ctx Context)                    // 帧开始时的回调函数
+	FrameEndCb         func(ctx Context)                    // 帧结束时的回调函数
 	FaceAnyAllocator   container.Allocator[util.FaceAny]    // 自定义FaceAny内存分配器，用于提高性能
 	HookAllocator      container.Allocator[localevent.Hook] // 自定义Hook内存分配器，用于提高性能
 }
@@ -38,11 +38,11 @@ func (WithOption) Default() ContextOption {
 		WithOption{}.AutoRecover(false)(o)
 		WithOption{}.ReportError(nil)(o)
 		WithOption{}.PersistIdGenerator(0)(o)
-		WithOption{}.StartedCallback(nil)(o)
-		WithOption{}.StoppingCallback(nil)(o)
-		WithOption{}.StoppedCallback(nil)(o)
-		WithOption{}.FrameBeginCallback(nil)(o)
-		WithOption{}.FrameEndCallback(nil)(o)
+		WithOption{}.StartedCb(nil)(o)
+		WithOption{}.StoppingCb(nil)(o)
+		WithOption{}.StoppedCb(nil)(o)
+		WithOption{}.FrameBeginCb(nil)(o)
+		WithOption{}.FrameEndCb(nil)(o)
 		WithOption{}.FaceAnyAllocator(container.DefaultAllocator[util.FaceAny]())(o)
 		WithOption{}.HookAllocator(container.DefaultAllocator[localevent.Hook]())(o)
 	}
@@ -83,38 +83,38 @@ func (WithOption) PersistIdGenerator(v uid.Id) ContextOption {
 	}
 }
 
-// StartedCallback 启动运行时回调函数
-func (WithOption) StartedCallback(v func(ctx Context)) ContextOption {
+// StartedCb 启动运行时回调函数
+func (WithOption) StartedCb(v func(ctx Context)) ContextOption {
 	return func(o *ContextOptions) {
-		o.StartedCallback = v
+		o.StartedCb = v
 	}
 }
 
-// StoppingCallback 开始停止运行时回调函数
-func (WithOption) StoppingCallback(fn func(ctx Context)) ContextOption {
+// StoppingCb 开始停止运行时回调函数
+func (WithOption) StoppingCb(fn func(ctx Context)) ContextOption {
 	return func(o *ContextOptions) {
-		o.StoppingCallback = fn
+		o.StoppingCb = fn
 	}
 }
 
-// StoppedCallback 完全停止运行时回调函数
-func (WithOption) StoppedCallback(fn func(ctx Context)) ContextOption {
+// StoppedCb 完全停止运行时回调函数
+func (WithOption) StoppedCb(fn func(ctx Context)) ContextOption {
 	return func(o *ContextOptions) {
-		o.StoppedCallback = fn
+		o.StoppedCb = fn
 	}
 }
 
-// FrameBeginCallback 帧更新开始时的回调函数
-func (WithOption) FrameBeginCallback(fn func(ctx Context)) ContextOption {
+// FrameBeginCb 帧更新开始时的回调函数
+func (WithOption) FrameBeginCb(fn func(ctx Context)) ContextOption {
 	return func(o *ContextOptions) {
-		o.FrameBeginCallback = fn
+		o.FrameBeginCb = fn
 	}
 }
 
-// FrameEndCallback 帧更新结束时的回调函数
-func (WithOption) FrameEndCallback(fn func(ctx Context)) ContextOption {
+// FrameEndCb 帧更新结束时的回调函数
+func (WithOption) FrameEndCb(fn func(ctx Context)) ContextOption {
 	return func(o *ContextOptions) {
-		o.FrameEndCallback = fn
+		o.FrameEndCb = fn
 	}
 }
 

@@ -2,6 +2,7 @@ package ec
 
 import (
 	"fmt"
+	"kit.golaxy.org/tiny/internal"
 	"kit.golaxy.org/tiny/localevent"
 	"kit.golaxy.org/tiny/uid"
 	"kit.golaxy.org/tiny/util"
@@ -36,7 +37,8 @@ func UnsafeNewEntity(options EntityOptions) Entity {
 type Entity interface {
 	_Entity
 	_ComponentMgr
-	ContextResolver
+	internal.ContextResolver
+	fmt.Stringer
 
 	// GetId 获取实体Id
 	GetId() uid.Id
@@ -46,8 +48,6 @@ type Entity interface {
 	GetState() EntityState
 	// DestroySelf 销毁自身
 	DestroySelf()
-	// String 字符串化
-	String() string
 }
 
 type _Entity interface {
@@ -98,6 +98,11 @@ func (entity *EntityBehavior) DestroySelf() {
 	}
 }
 
+// ResolveContext 解析上下文
+func (entity *EntityBehavior) ResolveContext() util.IfaceCache {
+	return entity.context
+}
+
 // String 字符串化
 func (entity *EntityBehavior) String() string {
 	var parentId uid.Id
@@ -105,15 +110,7 @@ func (entity *EntityBehavior) String() string {
 		parentId = parent.GetId()
 	}
 
-	return fmt.Sprintf("[Id:%d Parent:%d State:%s]",
-		entity.GetId(),
-		parentId,
-		entity.GetState())
-}
-
-// ResolveContext 解析上下文
-func (entity *EntityBehavior) ResolveContext() util.IfaceCache {
-	return entity.context
+	return fmt.Sprintf("{Id:%d Parent:%d State:%s}", entity.GetId(), parentId, entity.GetState())
 }
 
 func (entity *EntityBehavior) init(opts *EntityOptions) {

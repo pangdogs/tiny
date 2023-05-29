@@ -1,4 +1,4 @@
-package ec
+package internal
 
 import (
 	"kit.golaxy.org/tiny/util"

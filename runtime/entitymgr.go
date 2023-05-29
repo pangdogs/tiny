@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"kit.golaxy.org/tiny/ec"
+	"kit.golaxy.org/tiny/internal"
 	"kit.golaxy.org/tiny/localevent"
 	"kit.golaxy.org/tiny/uid"
 	"kit.golaxy.org/tiny/util"
@@ -12,15 +13,15 @@ import (
 
 // IEntityMgr 实体管理器接口
 type IEntityMgr interface {
-	ec.ContextResolver
+	internal.ContextResolver
 	// GetEntity 查询实体
 	GetEntity(id uid.Id) (ec.Entity, bool)
 	// RangeEntities 遍历所有实体
 	RangeEntities(func(entity ec.Entity) bool)
 	// ReverseRangeEntities 反向遍历所有实体
 	ReverseRangeEntities(func(entity ec.Entity) bool)
-	// GetEntityCount 获取实体数量
-	GetEntityCount() int
+	// CountEntities 获取实体数量
+	CountEntities() int
 	// AddEntity 添加实体
 	AddEntity(entity ec.Entity) error
 	// RemoveEntity 删除实体
@@ -110,8 +111,8 @@ func (entityMgr *_EntityMgr) ReverseRangeEntities(fun func(entity ec.Entity) boo
 	})
 }
 
-// GetEntityCount 获取实体数量
-func (entityMgr *_EntityMgr) GetEntityCount() int {
+// CountEntities 获取实体数量
+func (entityMgr *_EntityMgr) CountEntities() int {
 	return entityMgr.entityList.Len()
 }
 

@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"kit.golaxy.org/tiny/ec"
 	"kit.golaxy.org/tiny/internal"
 	"kit.golaxy.org/tiny/localevent"
 	"kit.golaxy.org/tiny/uid"
@@ -36,7 +35,7 @@ func UnsafeNewContext(options ContextOptions) Context {
 // Context 运行时上下文接口
 type Context interface {
 	_Context
-	ec.ContextResolver
+	internal.ContextResolver
 	container.GCCollector
 	internal.Context
 	internal.RunningState

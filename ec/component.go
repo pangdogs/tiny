@@ -2,6 +2,7 @@ package ec
 
 import (
 	"fmt"
+	"kit.golaxy.org/tiny/internal"
 	"kit.golaxy.org/tiny/localevent"
 	"kit.golaxy.org/tiny/uid"
 	"kit.golaxy.org/tiny/util"
@@ -11,7 +12,8 @@ import (
 // Component 组件接口
 type Component interface {
 	_Component
-	ContextResolver
+	internal.ContextResolver
+	fmt.Stringer
 
 	// GetId 获取组件Id
 	GetId() uid.Id
@@ -23,8 +25,6 @@ type Component interface {
 	GetState() ComponentState
 	// DestroySelf 销毁自身
 	DestroySelf()
-	// String 字符串化
-	String() string
 }
 
 type _Component interface {
@@ -74,6 +74,11 @@ func (comp *ComponentBehavior) DestroySelf() {
 	}
 }
 
+// ResolveContext 解析上下文
+func (comp *ComponentBehavior) ResolveContext() util.IfaceCache {
+	return comp.entity.ResolveContext()
+}
+
 // String 字符串化
 func (comp *ComponentBehavior) String() string {
 	var entityId uid.Id
@@ -81,16 +86,7 @@ func (comp *ComponentBehavior) String() string {
 		entityId = entity.GetId()
 	}
 
-	return fmt.Sprintf("[Id:%d Name:%s Entity:%d State:%s]",
-		comp.GetId(),
-		comp.GetName(),
-		entityId,
-		comp.GetState())
-}
-
-// ResolveContext 解析上下文
-func (comp *ComponentBehavior) ResolveContext() util.IfaceCache {
-	return comp.entity.ResolveContext()
+	return fmt.Sprintf("{Id:%d Name:%s Entity:%d State:%s}", comp.GetId(), comp.GetName(), entityId, comp.GetState())
 }
 
 func (comp *ComponentBehavior) init(name string, entity Entity, composite Component, hookAllocator container.Allocator[localevent.Hook], gcCollector container.GCCollector) {
