@@ -1,12 +1,17 @@
-//go:generate go run kit.golaxy.org/tiny/localevent/eventcode --decl_file=$GOFILE gen_emit --package=$GOPACKAGE
+//go:generate go run git.golaxy.org/tiny/event/eventcode gen_event
 package ec
 
-// EventCompMgrAddComponents [EmitUnExport] 事件：实体的组件管理器加入一些组件
-type EventCompMgrAddComponents interface {
-	OnCompMgrAddComponents(entity Entity, components []Component)
+// EventComponentMgrAddComponents [EmitUnExport] 事件：实体的组件管理器添加组件
+type EventComponentMgrAddComponents interface {
+	OnComponentMgrAddComponents(entity Entity, components []Component)
 }
 
-// EventCompMgrRemoveComponent [EmitUnExport] 事件：实体的组件管理器删除组件
-type EventCompMgrRemoveComponent interface {
-	OnCompMgrRemoveComponent(entity Entity, component Component)
+// EventComponentMgrRemoveComponent [EmitUnExport] 事件：实体的组件管理器删除组件
+type EventComponentMgrRemoveComponent interface {
+	OnComponentMgrRemoveComponent(entity Entity, component Component)
+}
+
+// EventComponentMgrFirstAccessComponent [EmitUnExport] 事件：实体的组件管理器首次访问组件
+type EventComponentMgrFirstAccessComponent interface {
+	OnComponentMgrFirstAccessComponent(entity Entity, component Component)
 }

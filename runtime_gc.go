@@ -1,16 +1,10 @@
 package tiny
 
 import (
-	"kit.golaxy.org/tiny/localevent"
-	"kit.golaxy.org/tiny/runtime"
+	"git.golaxy.org/tiny/runtime"
 )
 
-func (_runtime *RuntimeBehavior) gc() {
-	runtime.UnsafeContext(_runtime.ctx).GC()
-	localevent.UnsafeEvent(&_runtime.eventUpdate).GC()
-	localevent.UnsafeEvent(&_runtime.eventLateUpdate).GC()
-
-	if _runtime.opts.CustomGC != nil {
-		_runtime.opts.CustomGC(_runtime.opts.CompositeFace.Iface)
-	}
+func (rt *RuntimeBehavior) gc() {
+	runtime.UnsafeContext(rt.ctx).GC()
+	rt.opts.CustomGC.Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError(), nil, rt.opts.CompositeFace.Iface)
 }

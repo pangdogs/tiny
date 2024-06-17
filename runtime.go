@@ -1,389 +1,395 @@
 package tiny
 
 import (
-	"kit.golaxy.org/tiny/ec"
-	"kit.golaxy.org/tiny/internal"
-	"kit.golaxy.org/tiny/localevent"
-	"kit.golaxy.org/tiny/runtime"
-	"kit.golaxy.org/tiny/uid"
-	"kit.golaxy.org/tiny/util"
+	"fmt"
+	"git.golaxy.org/tiny/ec"
+	"git.golaxy.org/tiny/event"
+	"git.golaxy.org/tiny/internal/gctx"
+	"git.golaxy.org/tiny/runtime"
+	"git.golaxy.org/tiny/utils/async"
+	"git.golaxy.org/tiny/utils/generic"
+	"git.golaxy.org/tiny/utils/iface"
+	"git.golaxy.org/tiny/utils/option"
+	"git.golaxy.org/tiny/utils/reinterpret"
+	"git.golaxy.org/tiny/utils/uid"
 )
 
 // NewRuntime 创建运行时
-func NewRuntime(ctx runtime.Context, options ...RuntimeOption) Runtime {
-	opts := RuntimeOptions{}
-	WithOption{}.Default()(&opts)
-
-	for i := range options {
-		options[i](&opts)
-	}
-
-	return UnsafeNewRuntime(ctx, opts)
+func NewRuntime(ctx runtime.Context, settings ...option.Setting[RuntimeOptions]) Runtime {
+	return UnsafeNewRuntime(ctx, option.Make(With.Default(), settings...))
 }
 
+// Deprecated: UnsafeNewRuntime 内部创建运行时
 func UnsafeNewRuntime(ctx runtime.Context, options RuntimeOptions) Runtime {
 	if !options.CompositeFace.IsNil() {
-		options.CompositeFace.Iface.init(ctx, &options)
+		options.CompositeFace.Iface.init(ctx, options)
 		return options.CompositeFace.Iface
 	}
 
 	runtime := &RuntimeBehavior{}
-	runtime.init(ctx, &options)
+	runtime.init(ctx, options)
 
 	return runtime.opts.CompositeFace.Iface
 }
 
 // Runtime 运行时接口
 type Runtime interface {
-	_Runtime
-	internal.ContextResolver
-	internal.Running
-
-	// GetContext 获取运行时上下文
-	GetContext() runtime.Context
+	iRuntime
+	gctx.CurrentContextProvider
+	gctx.ConcurrentContextProvider
+	async.Callee
+	reinterpret.CompositeProvider
+	Running
 }
 
-type _Runtime interface {
-	init(ctx runtime.Context, opts *RuntimeOptions)
+type iRuntime interface {
+	init(ctx runtime.Context, opts RuntimeOptions)
 	getOptions() *RuntimeOptions
 }
 
 // RuntimeBehavior 运行时行为，在需要扩展运行时能力时，匿名嵌入至运行时结构体中
 type RuntimeBehavior struct {
-	opts            RuntimeOptions
 	ctx             runtime.Context
-	hooksMap        map[uid.Id][3]localevent.Hook
-	processQueue    chan func()
-	eventUpdate     localevent.Event
-	eventLateUpdate localevent.Event
+	opts            RuntimeOptions
+	hooksMap        map[uid.Id][3]event.Hook
+	processQueue    chan _Task
+	eventUpdate     event.Event
+	eventLateUpdate event.Event
 }
 
-// GetContext 获取运行时上下文
-func (_runtime *RuntimeBehavior) GetContext() runtime.Context {
-	return _runtime.ctx
+// GetCurrentContext 获取当前上下文
+func (rt *RuntimeBehavior) GetCurrentContext() iface.Cache {
+	return rt.ctx.GetCurrentContext()
 }
 
-// ResolveContext 解析上下文
-func (_runtime *RuntimeBehavior) ResolveContext() util.IfaceCache {
-	return util.Iface2Cache[runtime.Context](_runtime.ctx)
+// GetConcurrentContext 获取多线程安全的上下文
+func (rt *RuntimeBehavior) GetConcurrentContext() iface.Cache {
+	return rt.ctx.GetConcurrentContext()
 }
 
-func (_runtime *RuntimeBehavior) init(ctx runtime.Context, opts *RuntimeOptions) {
+// GetCompositeFaceCache 支持重新解释类型
+func (rt *RuntimeBehavior) GetCompositeFaceCache() iface.Cache {
+	return rt.opts.CompositeFace.Cache
+}
+
+func (rt *RuntimeBehavior) init(ctx runtime.Context, opts RuntimeOptions) {
 	if ctx == nil {
-		panic("nil ctx")
+		panic(fmt.Errorf("%w: %w: ctx is nil", ErrRuntime, ErrArgs))
 	}
 
-	if opts == nil {
-		panic("nil opts")
+	if !gctx.UnsafeContext(ctx).SetPaired(true) {
+		panic(fmt.Errorf("%w: context already paired", ErrRuntime))
 	}
 
-	if !runtime.UnsafeContext(ctx).MarkPaired(true) {
-		panic("runtime context already paired")
+	rt.ctx = ctx
+	rt.opts = opts
+
+	if rt.opts.CompositeFace.IsNil() {
+		rt.opts.CompositeFace = iface.MakeFaceT[Runtime](rt)
 	}
 
-	_runtime.opts = *opts
+	rt.hooksMap = make(map[uid.Id][3]event.Hook)
+	rt.processQueue = make(chan _Task, rt.opts.ProcessQueueCapacity)
 
-	if _runtime.opts.CompositeFace.IsNil() {
-		_runtime.opts.CompositeFace = util.NewFace[Runtime](_runtime)
+	rt.eventUpdate.Init(ctx.GetAutoRecover(), ctx.GetReportError(), event.EventRecursion_Disallow)
+	rt.eventLateUpdate.Init(ctx.GetAutoRecover(), ctx.GetReportError(), event.EventRecursion_Disallow)
+
+	runtime.UnsafeContext(ctx).SetFrame(rt.opts.Frame)
+	runtime.UnsafeContext(ctx).SetCallee(rt.opts.CompositeFace.Iface)
+
+	rt.changeRunningState(runtime.RunningState_Birth)
+
+	if rt.opts.AutoRun {
+		rt.opts.CompositeFace.Iface.Run()
+	}
+}
+
+func (rt *RuntimeBehavior) getOptions() *RuntimeOptions {
+	return &rt.opts
+}
+
+// OnEntityMgrAddEntity 事件处理器：实体管理器添加实体
+func (rt *RuntimeBehavior) OnEntityMgrAddEntity(entityMgr runtime.EntityMgr, entity ec.Entity) {
+	rt.activateEntity(entity)
+	rt.initEntity(entity)
+}
+
+// OnEntityMgrRemoveEntity 事件处理器：实体管理器删除实体
+func (rt *RuntimeBehavior) OnEntityMgrRemoveEntity(entityMgr runtime.EntityMgr, entity ec.Entity) {
+	rt.deactivateEntity(entity)
+	rt.shutEntity(entity)
+}
+
+// OnEntityMgrEntityFirstAccessComponent 事件处理器：实体管理器中的实体首次访问组件
+func (rt *RuntimeBehavior) OnEntityMgrEntityFirstAccessComponent(entityMgr runtime.EntityMgr, entity ec.Entity, component ec.Component) {
+	if component.GetState() != ec.ComponentState_Attach {
+		return
 	}
 
-	_runtime.ctx = ctx
-	_runtime.hooksMap = make(map[uid.Id][3]localevent.Hook)
+	ec.UnsafeComponent(component).SetState(ec.ComponentState_Awake)
 
-	_runtime.eventUpdate.Init(ctx.GetAutoRecover(), ctx.GetReportError(), localevent.EventRecursion_Disallow, ctx.GetHookAllocator(), nil)
-	_runtime.eventLateUpdate.Init(ctx.GetAutoRecover(), ctx.GetReportError(), localevent.EventRecursion_Disallow, ctx.GetHookAllocator(), nil)
-
-	if _runtime.opts.AutoRun {
-		_runtime.opts.CompositeFace.Iface.Run()
+	if compAwake, ok := component.(LifecycleComponentAwake); ok {
+		generic.MakeAction0(compAwake.Awake).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError())
 	}
+
+	ec.UnsafeComponent(component).SetState(ec.ComponentState_Start)
 }
 
-func (_runtime *RuntimeBehavior) getOptions() *RuntimeOptions {
-	return &_runtime.opts
+// OnEntityMgrEntityAddComponents 事件处理器：实体管理器中的实体添加组件
+func (rt *RuntimeBehavior) OnEntityMgrEntityAddComponents(entityMgr runtime.EntityMgr, entity ec.Entity, components []ec.Component) {
+	rt.addComponents(entity, components)
 }
 
-// OnEntityMgrAddEntity 事件回调：实体管理器添加实体
-func (_runtime *RuntimeBehavior) OnEntityMgrAddEntity(entityMgr runtime.IEntityMgr, entity ec.Entity) {
-	_runtime.connectEntity(entity)
-	_runtime.initEntity(entity)
+// OnEntityMgrEntityRemoveComponent 事件处理器：实体管理器中的实体删除组件
+func (rt *RuntimeBehavior) OnEntityMgrEntityRemoveComponent(entityMgr runtime.EntityMgr, entity ec.Entity, component ec.Component) {
+	rt.deactivateComponent(component)
+	rt.removeComponent(component)
 }
 
-// OnEntityMgrRemoveEntity 事件回调：实体管理器删除实体
-func (_runtime *RuntimeBehavior) OnEntityMgrRemoveEntity(entityMgr runtime.IEntityMgr, entity ec.Entity) {
-	_runtime.disconnectEntity(entity)
-	_runtime.shutEntity(entity)
+// OnEntityDestroySelf 事件处理器：实体销毁自身
+func (rt *RuntimeBehavior) OnEntityDestroySelf(entity ec.Entity) {
+	rt.ctx.GetEntityMgr().RemoveEntity(entity.GetId())
 }
 
-// OnEntityMgrEntityAddComponents 事件回调：实体管理器中的实体添加组件
-func (_runtime *RuntimeBehavior) OnEntityMgrEntityAddComponents(entityMgr runtime.IEntityMgr, entity ec.Entity, components []ec.Component) {
-	_runtime.addComponents(entity, components)
-}
-
-// OnEntityMgrEntityRemoveComponent 事件回调：实体管理器中的实体删除组件
-func (_runtime *RuntimeBehavior) OnEntityMgrEntityRemoveComponent(entityMgr runtime.IEntityMgr, entity ec.Entity, component ec.Component) {
-	_runtime.removeComponent(component)
-}
-
-// OnEntityDestroySelf 事件回调：实体销毁自身
-func (_runtime *RuntimeBehavior) OnEntityDestroySelf(entity ec.Entity) {
-	_runtime.ctx.GetEntityMgr().RemoveEntity(entity.GetId())
-}
-
-// OnComponentDestroySelf 事件回调：组件销毁自身
-func (_runtime *RuntimeBehavior) OnComponentDestroySelf(comp ec.Component) {
+// OnComponentDestroySelf 事件处理器：组件销毁自身
+func (rt *RuntimeBehavior) OnComponentDestroySelf(comp ec.Component) {
 	comp.GetEntity().RemoveComponentById(comp.GetId())
 }
 
-func (_runtime *RuntimeBehavior) addComponents(entity ec.Entity, components []ec.Component) {
+func (rt *RuntimeBehavior) addComponents(entity ec.Entity, components []ec.Component) {
 	switch entity.GetState() {
-	case ec.EntityState_Init, ec.EntityState_Inited, ec.EntityState_Living:
+	case ec.EntityState_Awake, ec.EntityState_Start, ec.EntityState_Alive:
 	default:
 		return
 	}
 
 	for i := range components {
-		_runtime.connectComponent(components[i])
+		rt.activateComponent(components[i])
 	}
 
 	for i := range components {
-		_comp := ec.UnsafeComponent(components[i])
+		comp := components[i]
 
-		if _comp.GetState() != ec.ComponentState_Awake {
+		if comp.GetState() != ec.ComponentState_Awake {
 			continue
 		}
 
-		if compAwake, ok := components[i].(LifecycleComponentAwake); ok {
-			internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
-				compAwake.Awake()
-			})
+		if compAwake, ok := comp.(LifecycleComponentAwake); ok {
+			generic.MakeAction0(compAwake.Awake).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError())
 		}
 
-		_comp.SetState(ec.ComponentState_Start)
+		ec.UnsafeComponent(comp).SetState(ec.ComponentState_Start)
 	}
 
 	switch entity.GetState() {
-	case ec.EntityState_Init, ec.EntityState_Inited, ec.EntityState_Living:
+	case ec.EntityState_Awake, ec.EntityState_Start, ec.EntityState_Alive:
 	default:
 		return
 	}
 
 	for i := range components {
-		_comp := ec.UnsafeComponent(components[i])
+		comp := components[i]
 
-		if _comp.GetState() != ec.ComponentState_Start {
+		if comp.GetState() != ec.ComponentState_Start {
 			continue
 		}
 
-		if compStart, ok := components[i].(LifecycleComponentStart); ok {
-			internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
-				compStart.Start()
-			})
+		if compStart, ok := comp.(LifecycleComponentStart); ok {
+			generic.MakeAction0(compStart.Start).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError())
 		}
 
-		_comp.SetState(ec.ComponentState_Living)
+		ec.UnsafeComponent(comp).SetState(ec.ComponentState_Alive)
 	}
 }
 
-func (_runtime *RuntimeBehavior) removeComponent(component ec.Component) {
-	_runtime.disconnectComponent(component)
-
+func (rt *RuntimeBehavior) removeComponent(component ec.Component) {
 	if component.GetState() != ec.ComponentState_Shut {
 		return
 	}
 
 	if compShut, ok := component.(LifecycleComponentShut); ok {
-		internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
-			compShut.Shut()
-		})
+		generic.MakeAction0(compShut.Shut).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError())
 	}
 
 	ec.UnsafeComponent(component).SetState(ec.ComponentState_Death)
+
+	if compDispose, ok := component.(LifecycleComponentDispose); ok {
+		generic.MakeAction0(compDispose.Dispose).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError())
+	}
+
+	ec.UnsafeComponent(component).CleanManagedHooks()
 }
 
-func (_runtime *RuntimeBehavior) connectEntity(entity ec.Entity) {
-	if entity.GetState() != ec.EntityState_Entry {
+func (rt *RuntimeBehavior) activateEntity(entity ec.Entity) {
+	if entity.GetState() != ec.EntityState_Enter {
 		return
 	}
 
-	var hooks [3]localevent.Hook
+	var hooks [3]event.Hook
 
 	if entityUpdate, ok := entity.(LifecycleEntityUpdate); ok {
-		hooks[0] = localevent.BindEvent[LifecycleEntityUpdate](&_runtime.eventUpdate, entityUpdate)
+		hooks[0] = event.Bind[LifecycleEntityUpdate](&rt.eventUpdate, entityUpdate)
 	}
 	if entityLateUpdate, ok := entity.(LifecycleEntityLateUpdate); ok {
-		hooks[1] = localevent.BindEvent[LifecycleEntityLateUpdate](&_runtime.eventLateUpdate, entityLateUpdate)
+		hooks[1] = event.Bind[LifecycleEntityLateUpdate](&rt.eventLateUpdate, entityLateUpdate)
 	}
-	hooks[2] = localevent.BindEvent[ec.EventEntityDestroySelf](ec.UnsafeEntity(entity).EventEntityDestroySelf(), _runtime)
+	hooks[2] = ec.BindEventEntityDestroySelf(ec.UnsafeEntity(entity), rt)
 
-	_runtime.hooksMap[entity.GetId()] = hooks
+	rt.hooksMap[entity.GetId()] = hooks
 
 	entity.RangeComponents(func(comp ec.Component) bool {
-		_runtime.connectComponent(comp)
+		rt.activateComponent(comp)
 		return true
 	})
 
-	ec.UnsafeEntity(entity).SetState(ec.EntityState_Init)
+	ec.UnsafeEntity(entity).SetState(ec.EntityState_Awake)
 }
 
-func (_runtime *RuntimeBehavior) disconnectEntity(entity ec.Entity) {
-	entity.RangeComponents(func(comp ec.Component) bool {
-		_runtime.disconnectComponent(comp)
-		return true
-	})
+func (rt *RuntimeBehavior) deactivateEntity(entity ec.Entity) {
+	entityId := entity.GetId()
 
-	hooks, ok := _runtime.hooksMap[entity.GetId()]
+	hooks, ok := rt.hooksMap[entityId]
 	if ok {
-		delete(_runtime.hooksMap, entity.GetId())
-
-		for i := range hooks {
-			hooks[i].Unbind()
-		}
+		delete(rt.hooksMap, entityId)
+		event.Clean(hooks[:])
 	}
 
 	ec.UnsafeEntity(entity).SetState(ec.EntityState_Shut)
+
+	entity.RangeComponents(func(comp ec.Component) bool {
+		rt.deactivateComponent(comp)
+		return true
+	})
 }
 
-func (_runtime *RuntimeBehavior) connectComponent(comp ec.Component) {
+func (rt *RuntimeBehavior) activateComponent(comp ec.Component) {
 	if comp.GetState() != ec.ComponentState_Attach {
 		return
 	}
 
-	var hooks [3]localevent.Hook
+	var hooks [3]event.Hook
 
 	if compUpdate, ok := comp.(LifecycleComponentUpdate); ok {
-		hooks[0] = localevent.BindEvent[LifecycleComponentUpdate](&_runtime.eventUpdate, compUpdate)
+		hooks[0] = event.Bind[LifecycleComponentUpdate](&rt.eventUpdate, compUpdate)
 	}
 	if compLateUpdate, ok := comp.(LifecycleComponentLateUpdate); ok {
-		hooks[1] = localevent.BindEvent[LifecycleComponentLateUpdate](&_runtime.eventLateUpdate, compLateUpdate)
+		hooks[1] = event.Bind[LifecycleComponentLateUpdate](&rt.eventLateUpdate, compLateUpdate)
 	}
-	hooks[2] = localevent.BindEvent[ec.EventComponentDestroySelf](ec.UnsafeComponent(comp).EventComponentDestroySelf(), _runtime)
+	hooks[2] = ec.BindEventComponentDestroySelf(ec.UnsafeComponent(comp), rt)
 
-	_runtime.hooksMap[comp.GetId()] = hooks
+	rt.hooksMap[comp.GetId()] = hooks
 
 	ec.UnsafeComponent(comp).SetState(ec.ComponentState_Awake)
 }
 
-func (_runtime *RuntimeBehavior) disconnectComponent(comp ec.Component) {
-	hooks, ok := _runtime.hooksMap[comp.GetId()]
-	if ok {
-		delete(_runtime.hooksMap, comp.GetId())
+func (rt *RuntimeBehavior) deactivateComponent(comp ec.Component) {
+	compId := comp.GetId()
 
-		for i := range hooks {
-			hooks[i].Unbind()
-		}
+	hooks, ok := rt.hooksMap[compId]
+	if ok {
+		delete(rt.hooksMap, compId)
+		event.Clean(hooks[:])
 	}
 
 	ec.UnsafeComponent(comp).SetState(ec.ComponentState_Shut)
 }
 
-func (_runtime *RuntimeBehavior) initEntity(entity ec.Entity) {
-	if entity.GetState() != ec.EntityState_Init {
+func (rt *RuntimeBehavior) initEntity(entity ec.Entity) {
+	if entity.GetState() != ec.EntityState_Awake {
 		return
 	}
 
-	if entityInit, ok := entity.(LifecycleEntityInit); ok {
-		internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
-			entityInit.Init()
-		})
+	if entityAwake, ok := entity.(LifecycleEntityAwake); ok {
+		generic.MakeAction0(entityAwake.Awake).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError())
 	}
 
-	if entity.GetState() != ec.EntityState_Init {
+	if entity.GetState() != ec.EntityState_Awake {
 		return
 	}
 
 	entity.RangeComponents(func(comp ec.Component) bool {
-		_comp := ec.UnsafeComponent(comp)
-
-		if _comp.GetState() != ec.ComponentState_Awake {
+		if comp.GetState() != ec.ComponentState_Awake {
 			return true
 		}
 
 		if compAwake, ok := comp.(LifecycleComponentAwake); ok {
-			internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
-				compAwake.Awake()
-			})
+			generic.MakeAction0(compAwake.Awake).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError())
 		}
 
-		_comp.SetState(ec.ComponentState_Start)
+		ec.UnsafeComponent(comp).SetState(ec.ComponentState_Start)
 
-		return entity.GetState() == ec.EntityState_Init
+		return entity.GetState() == ec.EntityState_Awake
 	})
 
-	if entity.GetState() != ec.EntityState_Init {
+	if entity.GetState() != ec.EntityState_Awake {
 		return
 	}
 
 	entity.RangeComponents(func(comp ec.Component) bool {
-		_comp := ec.UnsafeComponent(comp)
-
-		if _comp.GetState() != ec.ComponentState_Start {
+		if comp.GetState() != ec.ComponentState_Start {
 			return true
 		}
 
 		if compStart, ok := comp.(LifecycleComponentStart); ok {
-			internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
-				compStart.Start()
-			})
+			generic.MakeAction0(compStart.Start).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError())
 		}
 
-		_comp.SetState(ec.ComponentState_Living)
+		ec.UnsafeComponent(comp).SetState(ec.ComponentState_Alive)
 
-		return entity.GetState() == ec.EntityState_Init
+		return entity.GetState() == ec.EntityState_Awake
 	})
 
-	if entity.GetState() != ec.EntityState_Init {
+	if entity.GetState() != ec.EntityState_Awake {
 		return
 	}
 
-	ec.UnsafeEntity(entity).SetState(ec.EntityState_Inited)
+	ec.UnsafeEntity(entity).SetState(ec.EntityState_Start)
 
-	if entityInited, ok := entity.(LifecycleEntityInited); ok {
-		internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
-			entityInited.Inited()
-		})
+	if entityStart, ok := entity.(LifecycleEntityStart); ok {
+		generic.MakeAction0(entityStart.Start).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError())
 	}
 
-	if entity.GetState() != ec.EntityState_Inited {
+	if entity.GetState() != ec.EntityState_Start {
 		return
 	}
 
-	ec.UnsafeEntity(entity).SetState(ec.EntityState_Living)
+	ec.UnsafeEntity(entity).SetState(ec.EntityState_Alive)
 }
 
-func (_runtime *RuntimeBehavior) shutEntity(entity ec.Entity) {
+func (rt *RuntimeBehavior) shutEntity(entity ec.Entity) {
 	if entity.GetState() != ec.EntityState_Shut {
 		return
 	}
 
 	if entityShut, ok := entity.(LifecycleEntityShut); ok {
-		internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
-			entityShut.Shut()
-		})
+		generic.MakeAction0(entityShut.Shut).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError())
 	}
 
 	entity.RangeComponents(func(comp ec.Component) bool {
-		_comp := ec.UnsafeComponent(comp)
-
-		if _comp.GetState() != ec.ComponentState_Shut {
+		if comp.GetState() != ec.ComponentState_Shut {
 			return true
 		}
 
 		if compShut, ok := comp.(LifecycleComponentShut); ok {
-			internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
-				compShut.Shut()
-			})
+			generic.MakeAction0(compShut.Shut).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError())
 		}
 
-		_comp.SetState(ec.ComponentState_Death)
+		ec.UnsafeComponent(comp).SetState(ec.ComponentState_Death)
+
+		if compDispose, ok := comp.(LifecycleComponentDispose); ok {
+			generic.MakeAction0(compDispose.Dispose).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError())
+		}
+
+		ec.UnsafeComponent(comp).CleanManagedHooks()
 
 		return true
 	})
 
 	ec.UnsafeEntity(entity).SetState(ec.EntityState_Death)
 
-	if entityDestroy, ok := entity.(LifecycleEntityDestroy); ok {
-		internal.CallOuterNoRet(_runtime.ctx.GetAutoRecover(), _runtime.ctx.GetReportError(), func() {
-			entityDestroy.Destroy()
-		})
+	if entityDispose, ok := entity.(LifecycleEntityDispose); ok {
+		generic.MakeAction0(entityDispose.Dispose).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError())
 	}
+
+	ec.UnsafeEntity(entity).CleanManagedHooks()
 }

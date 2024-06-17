@@ -2,87 +2,97 @@ package ec
 
 import (
 	"fmt"
-	"kit.golaxy.org/tiny/internal"
-	"kit.golaxy.org/tiny/localevent"
-	"kit.golaxy.org/tiny/uid"
-	"kit.golaxy.org/tiny/util"
-	"kit.golaxy.org/tiny/util/container"
+	"git.golaxy.org/tiny/event"
+	"git.golaxy.org/tiny/internal/gctx"
+	"git.golaxy.org/tiny/utils/generic"
+	"git.golaxy.org/tiny/utils/iface"
+	"git.golaxy.org/tiny/utils/meta"
+	"git.golaxy.org/tiny/utils/option"
+	"git.golaxy.org/tiny/utils/reinterpret"
+	"git.golaxy.org/tiny/utils/uid"
+	"reflect"
 )
 
 // NewEntity 创建实体
-func NewEntity(options ...EntityOption) Entity {
-	opts := EntityOptions{}
-	WithOption{}.Default()(&opts)
-
-	for i := range options {
-		options[i](&opts)
-	}
-
-	return UnsafeNewEntity(opts)
+func NewEntity(settings ...option.Setting[EntityOptions]) Entity {
+	return UnsafeNewEntity(option.Make(With.Default(), settings...))
 }
 
+// Deprecated: UnsafeNewEntity 内部创建实体
 func UnsafeNewEntity(options EntityOptions) Entity {
 	if !options.CompositeFace.IsNil() {
-		options.CompositeFace.Iface.init(&options)
+		options.CompositeFace.Iface.init(options)
 		return options.CompositeFace.Iface
 	}
 
 	e := &EntityBehavior{}
-	e.init(&options)
+	e.init(options)
 
 	return e.opts.CompositeFace.Iface
 }
 
 // Entity 实体接口
 type Entity interface {
-	_Entity
-	_ComponentMgr
-	internal.ContextResolver
+	iEntity
+	iComponentMgr
+	iTreeNode
+	gctx.CurrentContextProvider
+	reinterpret.CompositeProvider
 	fmt.Stringer
 
 	// GetId 获取实体Id
 	GetId() uid.Id
-	// GetParent 获取在运行时上下文的主EC树上的父实体
-	GetParent() (Entity, bool)
+	// GetPrototype 获取实体原型
+	GetPrototype() string
 	// GetState 获取实体状态
 	GetState() EntityState
+	// GetReflected 获取反射值
+	GetReflected() reflect.Value
+	// GetMeta 获取Meta信息
+	GetMeta() meta.Meta
 	// DestroySelf 销毁自身
 	DestroySelf()
 }
 
-type _Entity interface {
-	init(opts *EntityOptions)
+type iEntity interface {
+	init(opts EntityOptions)
 	getOptions() *EntityOptions
 	setId(id uid.Id)
-	setContext(ctx util.IfaceCache)
-	setGCCollector(gcCollector container.GCCollector)
-	getGCCollector() container.GCCollector
-	setParent(parent Entity)
+	setContext(ctx iface.Cache)
 	setState(state EntityState)
-	eventEntityDestroySelf() localevent.IEvent
+	setReflected(v reflect.Value)
+	eventEntityDestroySelf() event.IEvent
+	cleanManagedHooks()
 }
 
 // EntityBehavior 实体行为，在需要扩展实体能力时，匿名嵌入至实体结构体中
 type EntityBehavior struct {
-	id                          uid.Id
-	opts                        EntityOptions
-	context                     util.IfaceCache
-	parent                      Entity
-	componentList               container.List[util.FaceAny]
-	state                       EntityState
-	_eventEntityDestroySelf     localevent.Event
-	eventCompMgrAddComponents   localevent.Event
-	eventCompMgrRemoveComponent localevent.Event
+	opts                                  EntityOptions
+	context                               iface.Cache
+	componentList                         generic.List[iface.FaceAny]
+	state                                 EntityState
+	reflected                             reflect.Value
+	treeNodeState                         TreeNodeState
+	treeNodeParent                        Entity
+	_eventEntityDestroySelf               event.Event
+	eventComponentMgrAddComponents        event.Event
+	eventComponentMgrRemoveComponent      event.Event
+	eventComponentMgrFirstAccessComponent event.Event
+	eventTreeNodeAddChild                 event.Event
+	eventTreeNodeRemoveChild              event.Event
+	eventTreeNodeEnterParent              event.Event
+	eventTreeNodeLeaveParent              event.Event
+	managedHooks                          []event.Hook
 }
 
 // GetId 获取实体Id
 func (entity *EntityBehavior) GetId() uid.Id {
-	return entity.id
+	return entity.opts.PersistId
 }
 
-// GetParent 获取在运行时上下文的主EC树上的父实体
-func (entity *EntityBehavior) GetParent() (Entity, bool) {
-	return entity.parent, entity.parent != nil
+// GetPrototype 获取实体原型
+func (entity *EntityBehavior) GetPrototype() string {
+	return entity.opts.Prototype
 }
 
 // GetState 获取实体状态
@@ -90,45 +100,63 @@ func (entity *EntityBehavior) GetState() EntityState {
 	return entity.state
 }
 
+// GetReflected 获取反射值
+func (entity *EntityBehavior) GetReflected() reflect.Value {
+	if entity.reflected.IsValid() {
+		return entity.reflected
+	}
+	entity.reflected = reflect.ValueOf(entity.opts.CompositeFace.Iface)
+	return entity.reflected
+}
+
+// GetMeta 获取Meta信息
+func (entity *EntityBehavior) GetMeta() meta.Meta {
+	return entity.opts.Meta
+}
+
 // DestroySelf 销毁自身
 func (entity *EntityBehavior) DestroySelf() {
 	switch entity.GetState() {
-	case EntityState_Init, EntityState_Inited, EntityState_Living:
-		emitEventEntityDestroySelf(&entity._eventEntityDestroySelf, entity.opts.CompositeFace.Iface)
+	case EntityState_Awake, EntityState_Start, EntityState_Alive:
+		_EmitEventEntityDestroySelf(UnsafeEntity(entity), entity.opts.CompositeFace.Iface)
 	}
 }
 
-// ResolveContext 解析上下文
-func (entity *EntityBehavior) ResolveContext() util.IfaceCache {
+// GetCurrentContext 获取当前上下文
+func (entity *EntityBehavior) GetCurrentContext() iface.Cache {
 	return entity.context
 }
 
-// String 字符串化
-func (entity *EntityBehavior) String() string {
-	var parentId uid.Id
-	if parent, ok := entity.GetParent(); ok {
-		parentId = parent.GetId()
-	}
-
-	return fmt.Sprintf("{Id:%d Parent:%d State:%s}", entity.GetId(), parentId, entity.GetState())
+// GetConcurrentContext 解析线程安全的上下文
+func (entity *EntityBehavior) GetConcurrentContext() iface.Cache {
+	return entity.context
 }
 
-func (entity *EntityBehavior) init(opts *EntityOptions) {
-	if opts == nil {
-		panic("nil opts")
-	}
+// GetCompositeFaceCache 支持重新解释类型
+func (entity *EntityBehavior) GetCompositeFaceCache() iface.Cache {
+	return entity.opts.CompositeFace.Cache
+}
 
-	entity.opts = *opts
+// String implements fmt.Stringer
+func (entity *EntityBehavior) String() string {
+	return fmt.Sprintf(`{"id":%q, "prototype":%q}`, entity.GetId(), entity.GetPrototype())
+}
+
+func (entity *EntityBehavior) init(opts EntityOptions) {
+	entity.opts = opts
 
 	if entity.opts.CompositeFace.IsNil() {
-		entity.opts.CompositeFace = util.NewFace[Entity](entity)
+		entity.opts.CompositeFace = iface.MakeFaceT[Entity](entity)
 	}
 
-	entity.componentList.Init(entity.opts.FaceAnyAllocator, entity.opts.GCCollector)
-
-	entity._eventEntityDestroySelf.Init(false, nil, localevent.EventRecursion_NotEmit, entity.opts.HookAllocator, entity.opts.GCCollector)
-	entity.eventCompMgrAddComponents.Init(false, nil, localevent.EventRecursion_Allow, entity.opts.HookAllocator, entity.opts.GCCollector)
-	entity.eventCompMgrRemoveComponent.Init(false, nil, localevent.EventRecursion_Allow, entity.opts.HookAllocator, entity.opts.GCCollector)
+	entity._eventEntityDestroySelf.Init(false, nil, event.EventRecursion_Discard)
+	entity.eventComponentMgrAddComponents.Init(false, nil, event.EventRecursion_Allow)
+	entity.eventComponentMgrRemoveComponent.Init(false, nil, event.EventRecursion_Allow)
+	entity.eventComponentMgrFirstAccessComponent.Init(false, nil, event.EventRecursion_Allow)
+	entity.eventTreeNodeAddChild.Init(false, nil, event.EventRecursion_Allow)
+	entity.eventTreeNodeRemoveChild.Init(false, nil, event.EventRecursion_Allow)
+	entity.eventTreeNodeEnterParent.Init(false, nil, event.EventRecursion_Allow)
+	entity.eventTreeNodeLeaveParent.Init(false, nil, event.EventRecursion_Allow)
 }
 
 func (entity *EntityBehavior) getOptions() *EntityOptions {
@@ -136,47 +164,38 @@ func (entity *EntityBehavior) getOptions() *EntityOptions {
 }
 
 func (entity *EntityBehavior) setId(id uid.Id) {
-	entity.id = id
+	entity.opts.PersistId = id
 }
 
-func (entity *EntityBehavior) setContext(ctx util.IfaceCache) {
+func (entity *EntityBehavior) setContext(ctx iface.Cache) {
 	entity.context = ctx
-}
-
-func (entity *EntityBehavior) setGCCollector(gcCollector container.GCCollector) {
-	if entity.opts.GCCollector == gcCollector {
-		return
-	}
-
-	entity.opts.GCCollector = gcCollector
-
-	entity.componentList.SetGCCollector(gcCollector)
-	entity.componentList.Traversal(func(e *container.Element[util.FaceAny]) bool {
-		comp := util.Cache2Iface[Component](e.Value.Cache)
-		comp.setGCCollector(gcCollector)
-		return true
-	})
-
-	localevent.UnsafeEvent(&entity._eventEntityDestroySelf).SetGCCollector(gcCollector)
-	localevent.UnsafeEvent(&entity.eventCompMgrAddComponents).SetGCCollector(gcCollector)
-	localevent.UnsafeEvent(&entity.eventCompMgrRemoveComponent).SetGCCollector(gcCollector)
-}
-
-func (entity *EntityBehavior) getGCCollector() container.GCCollector {
-	return entity.opts.GCCollector
-}
-
-func (entity *EntityBehavior) setParent(parent Entity) {
-	entity.parent = parent
 }
 
 func (entity *EntityBehavior) setState(state EntityState) {
 	if state <= entity.state {
 		return
 	}
+
 	entity.state = state
+
+	switch entity.state {
+	case EntityState_Leave:
+		entity._eventEntityDestroySelf.Close()
+		entity.eventComponentMgrAddComponents.Close()
+		entity.eventComponentMgrRemoveComponent.Close()
+		entity.eventComponentMgrFirstAccessComponent.Close()
+	case EntityState_Shut:
+		entity.eventTreeNodeAddChild.Close()
+		entity.eventTreeNodeRemoveChild.Close()
+		entity.eventTreeNodeEnterParent.Close()
+		entity.eventTreeNodeLeaveParent.Close()
+	}
 }
 
-func (entity *EntityBehavior) eventEntityDestroySelf() localevent.IEvent {
+func (entity *EntityBehavior) setReflected(v reflect.Value) {
+	entity.reflected = v
+}
+
+func (entity *EntityBehavior) eventEntityDestroySelf() event.IEvent {
 	return &entity._eventEntityDestroySelf
 }

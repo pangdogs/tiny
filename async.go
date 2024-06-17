@@ -3,286 +3,188 @@ package tiny
 import (
 	"context"
 	"fmt"
-	"kit.golaxy.org/tiny/runtime"
-	"sync/atomic"
+	"git.golaxy.org/tiny/internal/gctx"
+	"git.golaxy.org/tiny/runtime"
+	"git.golaxy.org/tiny/utils/async"
+	"git.golaxy.org/tiny/utils/generic"
 	"time"
+	_ "unsafe"
 )
 
-// Async 异步执行代码，最多返回一次，有返回值，返回的异步结果（async ret）可以给Await()等待并继续后续逻辑运行
-func Async(ctxResolver runtime.ContextResolver, segment func(ctx runtime.Context) runtime.Ret) runtime.AsyncRet {
-	ctx := runtime.Get(ctxResolver)
+//go:linkname getCaller git.golaxy.org/tiny/runtime.getCaller
+func getCaller(provider gctx.ConcurrentContextProvider) async.Caller
 
-	if segment == nil {
-		panic("nil segment")
-	}
-
-	return ctx.AsyncCall(func() runtime.Ret {
-		return segment(ctx)
-	})
+// Async 异步执行代码，有返回值
+func Async(provider gctx.ConcurrentContextProvider, fun generic.FuncVar1[runtime.Context, any, async.Ret], va ...any) async.AsyncRet {
+	ctx := getCaller(provider)
+	return ctx.Call(func(va ...any) async.Ret {
+		ctx := va[0].(runtime.Context)
+		fun := va[1].(generic.FuncVar1[runtime.Context, any, async.Ret])
+		funVa := va[2].([]any)
+		return fun.Exec(ctx, funVa...)
+	}, ctx, fun, va)
 }
 
-// AsyncVoid 异步执行代码，最多返回一次，无返回值，返回的异步结果（async ret）可以给Await()等待并继续后续逻辑运行
-func AsyncVoid(ctxResolver runtime.ContextResolver, segment func(ctx runtime.Context)) runtime.AsyncRet {
-	ctx := runtime.Get(ctxResolver)
-
-	if segment == nil {
-		panic("nil segment")
-	}
-
-	return ctx.AsyncCall(func() runtime.Ret {
-		segment(ctx)
-		return runtime.NewRet(nil, nil)
-	})
+// AsyncVoid 异步执行代码，无返回值
+func AsyncVoid(provider gctx.ConcurrentContextProvider, fun generic.ActionVar1[runtime.Context, any], va ...any) async.AsyncRet {
+	ctx := getCaller(provider)
+	return ctx.CallVoid(func(va ...any) {
+		ctx := va[0].(runtime.Context)
+		fun := va[1].(generic.ActionVar1[runtime.Context, any])
+		funVa := va[2].([]any)
+		fun.Exec(ctx, funVa...)
+	}, ctx, fun, va)
 }
 
-// AsyncGo 使用新协程异步执行代码，最多返回一次，有返回值，返回的异步结果（async ret）可以给Await()等待并继续后续逻辑运行
-func AsyncGo(ctxResolver runtime.ContextResolver, segment func(ctx runtime.Context) runtime.Ret) runtime.AsyncRet {
-	ctx := runtime.Get(ctxResolver)
-
-	if segment == nil {
-		panic("nil segment")
-	}
-
-	asyncRet := make(chan runtime.Ret, 1)
-
-	go func() {
-		defer func() {
-			if info := recover(); info != nil {
-				err, ok := info.(error)
-				if !ok {
-					err = fmt.Errorf("%v", info)
-				}
-				asyncRet <- runtime.NewRet(err, nil)
-			}
-			close(asyncRet)
-		}()
-		asyncRet <- segment(ctx)
-	}()
-
-	return asyncRet
-}
-
-// AsyncGoVoid 使用新协程异步执行代码，最多返回一次，无返回值，返回的异步结果（async ret）可以给Await()等待并继续后续逻辑运行
-func AsyncGoVoid(ctxResolver runtime.ContextResolver, segment func(ctx runtime.Context)) runtime.AsyncRet {
-	ctx := runtime.Get(ctxResolver)
-
-	if segment == nil {
-		panic("nil segment")
-	}
-
-	asyncRet := make(chan runtime.Ret, 1)
-
-	go func() {
-		defer func() {
-			if info := recover(); info != nil {
-				err, ok := info.(error)
-				if !ok {
-					err = fmt.Errorf("%v", info)
-				}
-				asyncRet <- runtime.NewRet(err, nil)
-			}
-			close(asyncRet)
-		}()
-		segment(ctx)
-		asyncRet <- runtime.NewRet(nil, nil)
-	}()
-
-	return asyncRet
-}
-
-// AsyncTimeAfter 异步等待一段时间后返回，最多返回一次，无返回值，返回的异步结果（async ret）可以给Await()等待并继续后续逻辑运行
-func AsyncTimeAfter(ctx context.Context, dur time.Duration) runtime.AsyncRet {
+// Go 使用新线程执行代码，有返回值
+func Go(ctx context.Context, fun generic.FuncVar1[context.Context, any, async.Ret], va ...any) async.AsyncRet {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	asyncRet := make(chan runtime.Ret, 1)
-	timer := time.NewTimer(dur)
+	asyncRet := async.MakeAsyncRet()
 
-	go func() {
-		defer func() {
-			recover()
-			timer.Stop()
-			close(asyncRet)
-		}()
+	go func(fun generic.FuncVar1[context.Context, any, async.Ret], ctx context.Context, va []any, asyncRet chan async.Ret) {
+		ret, panicErr := fun.Invoke(ctx, va...)
+		if panicErr != nil {
+			ret.Error = panicErr
+		}
+		asyncRet <- ret
+		close(asyncRet)
+	}(fun, ctx, va, asyncRet)
+
+	return asyncRet
+}
+
+// GoVoid 使用新线程执行代码，无返回值
+func GoVoid(ctx context.Context, fun generic.ActionVar1[context.Context, any], va ...any) async.AsyncRet {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	asyncRet := async.MakeAsyncRet()
+
+	go func(fun generic.ActionVar1[context.Context, any], ctx context.Context, va []any, asyncRet chan async.Ret) {
+		asyncRet <- async.MakeRet(nil, fun.Invoke(ctx, va...))
+		close(asyncRet)
+	}(fun, ctx, va, asyncRet)
+
+	return asyncRet
+}
+
+// TimeAfter 定时器，指定时长
+func TimeAfter(ctx context.Context, dur time.Duration) async.AsyncRet {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	asyncRet := async.MakeAsyncRet()
+
+	go func(ctx context.Context, dur time.Duration, asyncRet chan async.Ret) {
+		timer := time.NewTimer(dur)
+		defer timer.Stop()
 
 		select {
 		case <-timer.C:
-			asyncRet <- runtime.NewRet(nil, nil)
+			asyncRet <- async.VoidRet
 		case <-ctx.Done():
+			break
 		}
-	}()
+
+		close(asyncRet)
+	}(ctx, dur, asyncRet)
 
 	return asyncRet
 }
 
-// AsyncTimeTick 每隔一段时间后返回，返回多次，无返回值，返回的异步结果（async ret）可以给Await()等待并继续后续逻辑运行
-func AsyncTimeTick(ctx context.Context, dur time.Duration) runtime.AsyncRet {
+// TimeAt 定时器，指定时间点
+func TimeAt(ctx context.Context, at time.Time) async.AsyncRet {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	asyncRet := make(chan runtime.Ret, 1)
-	tick := time.NewTicker(dur)
+	asyncRet := async.MakeAsyncRet()
 
-	go func() {
-		defer func() {
-			recover()
-			tick.Stop()
-			close(asyncRet)
-		}()
+	go func(ctx context.Context, at time.Time, asyncRet chan async.Ret) {
+		timer := time.NewTimer(time.Until(at))
+		defer timer.Stop()
 
+		select {
+		case <-timer.C:
+			asyncRet <- async.VoidRet
+		case <-ctx.Done():
+			break
+		}
+
+		close(asyncRet)
+	}(ctx, at, asyncRet)
+
+	return asyncRet
+}
+
+// TimeTick 心跳器
+func TimeTick(ctx context.Context, dur time.Duration) async.AsyncRet {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	asyncRet := async.MakeAsyncRet()
+
+	go func(ctx context.Context, dur time.Duration, asyncRet chan async.Ret) {
+		tick := time.NewTicker(dur)
+		defer tick.Stop()
+
+	loop:
 		for {
 			select {
 			case <-tick.C:
 				select {
-				case asyncRet <- runtime.NewRet(nil, nil):
+				case asyncRet <- async.VoidRet:
 				case <-ctx.Done():
-					return
+					break loop
 				}
 			case <-ctx.Done():
-				return
+				break loop
 			}
 		}
-	}()
+
+		close(asyncRet)
+	}(ctx, dur, asyncRet)
 
 	return asyncRet
 }
 
-// AsyncChanRet 异步等待chan返回，支持返回多次，有返回值，返回的异步结果（async ret）可以给Await()等待并继续后续逻辑运行
-func AsyncChanRet[T any](ctx context.Context, ch <-chan T) runtime.AsyncRet {
+// ReadChan 读取channel
+func ReadChan[T any](ctx context.Context, ch <-chan T) async.AsyncRet {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
 	if ch == nil {
-		panic("nil ch")
+		panic(fmt.Errorf("%w: %w: ch is nil", ErrTiny, ErrArgs))
 	}
 
-	asyncRet := make(chan runtime.Ret, 1)
+	asyncRet := async.MakeAsyncRet()
 
-	go func() {
-		defer func() {
-			recover()
-			close(asyncRet)
-		}()
-
+	go func(ctx context.Context, ch <-chan T, asyncRet chan async.Ret) {
+	loop:
 		for {
 			select {
 			case v, ok := <-ch:
 				if !ok {
-					return
+					break loop
 				}
 				select {
-				case asyncRet <- runtime.NewRet(nil, v):
+				case asyncRet <- async.MakeRet(v, nil):
 				case <-ctx.Done():
-					return
+					break loop
 				}
 			case <-ctx.Done():
-				return
+				break loop
 			}
 		}
-	}()
+		close(asyncRet)
+	}(ctx, ch, asyncRet)
 
 	return asyncRet
-}
-
-// Await 等待异步结果（async ret）返回，并继续运行后续逻辑
-func Await(ctxResolver runtime.ContextResolver, asyncRet runtime.AsyncRet, onAsyncRet func(ctx runtime.Context, ret runtime.Ret)) {
-	ctx := runtime.Get(ctxResolver)
-
-	if asyncRet == nil {
-		return
-	}
-
-	if onAsyncRet == nil {
-		panic("nil onAsyncRet")
-	}
-
-	go func() {
-		defer func() {
-			recover()
-		}()
-
-		for ret := range asyncRet {
-			ctx.AsyncCallNoRet(func() { onAsyncRet(ctx, ret) })
-		}
-	}()
-}
-
-// AwaitAny 等待任意一个异步结果（async ret）成功的一次返回，并继续运行后续逻辑
-func AwaitAny(ctxResolver runtime.ContextResolver, asyncRets []runtime.AsyncRet, onAsyncRet func(ctx runtime.Context, ret runtime.Ret)) {
-	ctx := runtime.Get(ctxResolver)
-
-	if len(asyncRets) <= 0 {
-		return
-	}
-
-	if onAsyncRet == nil {
-		panic("nil onAsyncRet")
-	}
-
-	var b atomic.Bool
-	waitCtx, cancel := context.WithCancel(ctx)
-
-	for _, asyncRet := range asyncRets {
-		if asyncRet == nil {
-			continue
-		}
-
-		go func(asyncRet runtime.AsyncRet) {
-			defer func() {
-				recover()
-			}()
-
-			var ret runtime.Ret
-			var ok bool
-
-			select {
-			case ret, ok = <-asyncRet:
-				if !ok || !ret.OK() {
-					return
-				}
-			case <-waitCtx.Done():
-				return
-			}
-
-			if !b.CompareAndSwap(false, true) {
-				return
-			}
-
-			cancel()
-
-			ctx.AsyncCallNoRet(func() { onAsyncRet(ctx, ret) })
-		}(asyncRet)
-	}
-}
-
-// AwaitAll 等待所有异步结果（async ret）返回，并继续运行后续逻辑
-func AwaitAll(ctxResolver runtime.ContextResolver, asyncRets []runtime.AsyncRet, onAsyncRet func(ctx runtime.Context, ret runtime.Ret)) {
-	ctx := runtime.Get(ctxResolver)
-
-	if len(asyncRets) <= 0 {
-		return
-	}
-
-	if onAsyncRet == nil {
-		panic("nil onAsyncRet")
-	}
-
-	for _, asyncRet := range asyncRets {
-		if asyncRet == nil {
-			continue
-		}
-
-		go func(asyncRet runtime.AsyncRet) {
-			defer func() {
-				recover()
-			}()
-
-			for ret := range asyncRet {
-				ctx.AsyncCallNoRet(func() { onAsyncRet(ctx, ret) })
-			}
-		}(asyncRet)
-	}
 }

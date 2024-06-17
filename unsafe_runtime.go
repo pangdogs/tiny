@@ -1,6 +1,6 @@
 package tiny
 
-import "kit.golaxy.org/tiny/runtime"
+import "git.golaxy.org/tiny/runtime"
 
 func UnsafeRuntime(runtime Runtime) _UnsafeRuntime {
 	return _UnsafeRuntime{
@@ -12,7 +12,7 @@ type _UnsafeRuntime struct {
 	Runtime
 }
 
-func (ur _UnsafeRuntime) Init(ctx runtime.Context, opts *RuntimeOptions) {
+func (ur _UnsafeRuntime) Init(ctx runtime.Context, opts RuntimeOptions) {
 	ur.init(ctx, opts)
 }
 

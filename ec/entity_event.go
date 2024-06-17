@@ -1,4 +1,4 @@
-//go:generate go run kit.golaxy.org/tiny/localevent/eventcode --decl_file=$GOFILE gen_emit --package=$GOPACKAGE
+//go:generate go run git.golaxy.org/tiny/event/eventcode gen_event
 package ec
 
 // EventEntityDestroySelf [EmitUnExport] 事件：实体销毁自身

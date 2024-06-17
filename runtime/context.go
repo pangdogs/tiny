@@ -1,85 +1,88 @@
 package runtime
 
 import (
-	"kit.golaxy.org/tiny/internal"
-	"kit.golaxy.org/tiny/localevent"
-	"kit.golaxy.org/tiny/uid"
-	"kit.golaxy.org/tiny/util"
-	"kit.golaxy.org/tiny/util/container"
+	"context"
+	"fmt"
+	"git.golaxy.org/tiny/event"
+	"git.golaxy.org/tiny/internal/gctx"
+	"git.golaxy.org/tiny/plugin"
+	"git.golaxy.org/tiny/utils/async"
+	"git.golaxy.org/tiny/utils/exception"
+	"git.golaxy.org/tiny/utils/iface"
+	"git.golaxy.org/tiny/utils/option"
+	"git.golaxy.org/tiny/utils/reinterpret"
+	"git.golaxy.org/tiny/utils/uid"
+	"reflect"
 )
 
 // NewContext 创建运行时上下文
-func NewContext(options ...ContextOption) Context {
-	opts := ContextOptions{}
-	WithOption{}.Default()(&opts)
-
-	for i := range options {
-		options[i](&opts)
-	}
-
-	return UnsafeNewContext(opts)
+func NewContext(settings ...option.Setting[ContextOptions]) Context {
+	return UnsafeNewContext(option.Make(With.Context.Default(), settings...))
 }
 
+// Deprecated: UnsafeNewContext 内部创建运行时上下文
 func UnsafeNewContext(options ContextOptions) Context {
 	if !options.CompositeFace.IsNil() {
-		options.CompositeFace.Iface.init(&options)
+		options.CompositeFace.Iface.init(options)
 		return options.CompositeFace.Iface
 	}
 
 	ctx := &ContextBehavior{}
-	ctx.init(&options)
+	ctx.init(options)
 
 	return ctx.opts.CompositeFace.Iface
 }
 
 // Context 运行时上下文接口
 type Context interface {
-	_Context
-	internal.ContextResolver
-	container.GCCollector
-	internal.Context
-	internal.RunningState
-	Caller
+	iContext
+	gctx.CurrentContextProvider
+	gctx.Context
+	async.Caller
+	reinterpret.CompositeProvider
+	plugin.PluginProvider
+	GCCollector
 
-	// GenPersistId 生成持久化Id
-	GenPersistId() uid.Id
+	// GetReflected 获取反射值
+	GetReflected() reflect.Value
 	// GetFrame 获取帧
 	GetFrame() Frame
 	// GetEntityMgr 获取实体管理器
-	GetEntityMgr() IEntityMgr
-	// GetECTree 获取主EC树
-	GetECTree() IECTree
-	// GetFaceAnyAllocator 获取FaceAny内存分配器
-	GetFaceAnyAllocator() container.Allocator[util.FaceAny]
-	// GetHookAllocator 获取Hook内存分配器
-	GetHookAllocator() container.Allocator[localevent.Hook]
+	GetEntityMgr() EntityMgr
+	// GetEntityTree 获取实体树
+	GetEntityTree() EntityTree
+	// ActivateEvent 启用事件
+	ActivateEvent(event event.IEventCtrl, recursion event.EventRecursion)
+	// ManagedHooks 托管hook，在运行时停止时自动解绑定
+	ManagedHooks(hooks ...event.Hook)
 }
 
-type _Context interface {
-	init(opts *ContextOptions)
+type iContext interface {
+	init(opts ContextOptions)
 	getOptions() *ContextOptions
+	newId() uid.Id
 	setFrame(frame Frame)
-	setCallee(callee Callee)
+	setCallee(callee async.Callee)
+	changeRunningState(state RunningState)
 	gc()
 }
 
 // ContextBehavior 运行时上下文行为，在需要扩展运行时上下文能力时，匿名嵌入至运行时上下文结构体中
 type ContextBehavior struct {
-	internal.ContextBehavior
-	internal.RunningStateBehavior
-	opts               ContextOptions
-	persistIdGenerator uid.Id
-	frame              Frame
-	entityMgr          _EntityMgr
-	ecTree             ECTree
-	callee             Callee
-	gcList             []container.GC
+	gctx.ContextBehavior
+	opts         ContextOptions
+	genId        uid.Id
+	reflected    reflect.Value
+	frame        Frame
+	entityMgr    _EntityMgrBehavior
+	callee       async.Callee
+	managedHooks []event.Hook
+	gcList       []GC
 }
 
-// GenPersistId 生成持久化Id
-func (ctx *ContextBehavior) GenPersistId() uid.Id {
-	ctx.persistIdGenerator++
-	return ctx.persistIdGenerator
+// GetReflected 获取反射值
+func (ctx *ContextBehavior) GetReflected() reflect.Value {
+	return ctx.reflected
 }
 
 // GetFrame 获取帧
@@ -88,32 +91,40 @@ func (ctx *ContextBehavior) GetFrame() Frame {
 }
 
 // GetEntityMgr 获取实体管理器
-func (ctx *ContextBehavior) GetEntityMgr() IEntityMgr {
+func (ctx *ContextBehavior) GetEntityMgr() EntityMgr {
 	return &ctx.entityMgr
 }
 
-// GetECTree 获取主EC树
-func (ctx *ContextBehavior) GetECTree() IECTree {
-	return &ctx.ecTree
+// GetEntityTree 获取主实体树
+func (ctx *ContextBehavior) GetEntityTree() EntityTree {
+	return &ctx.entityMgr
 }
 
-// GetFaceAnyAllocator 获取FaceAny内存分配器
-func (ctx *ContextBehavior) GetFaceAnyAllocator() container.Allocator[util.FaceAny] {
-	return ctx.opts.FaceAnyAllocator
+// ActivateEvent 启用事件
+func (ctx *ContextBehavior) ActivateEvent(event event.IEventCtrl, recursion event.EventRecursion) {
+	if event == nil {
+		panic(fmt.Errorf("%w: %w: event is nil", ErrContext, exception.ErrArgs))
+	}
+	event.Init(ctx.GetAutoRecover(), ctx.GetReportError(), recursion)
 }
 
-// GetHookAllocator 获取Hook内存分配器
-func (ctx *ContextBehavior) GetHookAllocator() container.Allocator[localevent.Hook] {
-	return ctx.opts.HookAllocator
+// GetCurrentContext 获取当前上下文
+func (ctx *ContextBehavior) GetCurrentContext() iface.Cache {
+	return iface.Iface2Cache[Context](ctx.opts.CompositeFace.Iface)
 }
 
-// ResolveContext 解析上下文
-func (ctx *ContextBehavior) ResolveContext() util.IfaceCache {
-	return util.Iface2Cache[Context](ctx.opts.CompositeFace.Iface)
+// GetConcurrentContext 获取多线程安全的上下文
+func (ctx *ContextBehavior) GetConcurrentContext() iface.Cache {
+	return iface.Iface2Cache[Context](ctx.opts.CompositeFace.Iface)
+}
+
+// GetCompositeFaceCache 支持重新解释类型
+func (ctx *ContextBehavior) GetCompositeFaceCache() iface.Cache {
+	return ctx.opts.CompositeFace.Cache
 }
 
 // CollectGC 收集GC
-func (ctx *ContextBehavior) CollectGC(gc container.GC) {
+func (ctx *ContextBehavior) CollectGC(gc GC) {
 	if gc == nil || !gc.NeedGC() {
 		return
 	}
@@ -121,32 +132,45 @@ func (ctx *ContextBehavior) CollectGC(gc container.GC) {
 	ctx.gcList = append(ctx.gcList, gc)
 }
 
-func (ctx *ContextBehavior) init(opts *ContextOptions) {
-	if opts == nil {
-		panic("nil opts")
-	}
-
-	ctx.opts = *opts
+func (ctx *ContextBehavior) init(opts ContextOptions) {
+	ctx.opts = opts
 
 	if ctx.opts.CompositeFace.IsNil() {
-		ctx.opts.CompositeFace = util.NewFace[Context](ctx)
+		ctx.opts.CompositeFace = iface.MakeFaceT[Context](ctx)
 	}
 
-	ctx.persistIdGenerator = ctx.opts.PersistIdGenerator
+	if ctx.opts.Context == nil {
+		ctx.opts.Context = context.Background()
+	}
 
-	internal.UnsafeContext(&ctx.ContextBehavior).Init(ctx.opts.Context, ctx.opts.AutoRecover, ctx.opts.ReportError)
-	ctx.entityMgr.Init(ctx.getOptions().CompositeFace.Iface)
-	ctx.ecTree.init(ctx.opts.CompositeFace.Iface, true)
+	gctx.UnsafeContext(&ctx.ContextBehavior).Init(ctx.opts.Context, ctx.opts.AutoRecover, ctx.opts.ReportError)
+	ctx.reflected = reflect.ValueOf(ctx.opts.CompositeFace.Iface)
+	ctx.entityMgr.init(ctx.opts.CompositeFace.Iface)
 }
 
 func (ctx *ContextBehavior) getOptions() *ContextOptions {
 	return &ctx.opts
 }
 
+func (ctx *ContextBehavior) newId() uid.Id {
+	ctx.genId++
+	return ctx.genId
+}
+
 func (ctx *ContextBehavior) setFrame(frame Frame) {
 	ctx.frame = frame
 }
 
-func (ctx *ContextBehavior) setCallee(callee Callee) {
+func (ctx *ContextBehavior) setCallee(callee async.Callee) {
 	ctx.callee = callee
+}
+
+func (ctx *ContextBehavior) changeRunningState(state RunningState) {
+	ctx.entityMgr.changeRunningState(state)
+	ctx.opts.RunningHandler.Call(ctx.GetAutoRecover(), ctx.GetReportError(), nil, ctx.opts.CompositeFace.Iface, state)
+
+	switch state {
+	case RunningState_Terminated:
+		ctx.cleanManagedHooks()
+	}
 }
