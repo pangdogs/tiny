@@ -55,7 +55,7 @@ func (rt *RuntimeBehavior) Play(delta time.Duration) (err error) {
 		}
 	}()
 
-	frames := int64(delta.Seconds() * float64(rt.opts.Frame.GetTargetFPS()))
+	frames := int64(delta.Seconds() * float64(frame.GetTargetFPS()))
 	if frames <= 0 {
 		return nil
 	}
@@ -82,7 +82,7 @@ func (rt *RuntimeBehavior) PlayAt(at time.Duration) (err error) {
 		}
 	}()
 
-	frames := int64(at.Seconds() * float64(rt.opts.Frame.GetTargetFPS()))
+	frames := int64(at.Seconds() * float64(frame.GetTargetFPS()))
 	if frames <= 0 {
 		return nil
 	}
