@@ -3,5 +3,5 @@
 
 ## Install
 ```
-go get -u kit.golaxy.org/tiny
+go get -u git.golaxy.org/tiny
 ```
