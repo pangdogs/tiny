@@ -6,11 +6,20 @@ import (
 	"git.golaxy.org/tiny/utils/option"
 )
 
+// FrameMode 帧模式
+type FrameMode int32
+
+const (
+	RealTime FrameMode = iota // 实时
+	Simulate                  // 瞬时模拟
+	Manual                    // 手动控制
+)
+
 // FrameOptions 帧的所有选项
 type FrameOptions struct {
-	TargetFPS   float32 // 目标FPS
-	TotalFrames uint64  // 运行帧数上限
-	blink       bool    // 是否是瞬时运行
+	TargetFPS   float32   // 目标FPS
+	TotalFrames int64     // 运行帧数上限
+	Mode        FrameMode // 帧模式
 }
 
 type _FrameOption struct{}
@@ -20,7 +29,7 @@ func (_FrameOption) Default() option.Setting[FrameOptions] {
 	return func(o *FrameOptions) {
 		With.Frame.TargetFPS(30)(o)
 		With.Frame.TotalFrames(0)(o)
-		With.Frame.Blink(false)(o)
+		With.Frame.Mode(RealTime)(o)
 	}
 }
 
@@ -35,7 +44,7 @@ func (_FrameOption) TargetFPS(fps float32) option.Setting[FrameOptions] {
 }
 
 // TotalFrames 运行帧数上限
-func (_FrameOption) TotalFrames(v uint64) option.Setting[FrameOptions] {
+func (_FrameOption) TotalFrames(v int64) option.Setting[FrameOptions] {
 	return func(o *FrameOptions) {
 		if v < 0 {
 			panic(fmt.Errorf("%w: %w: TotalFrames less 0 is invalid", ErrFrame, exception.ErrArgs))
@@ -44,9 +53,9 @@ func (_FrameOption) TotalFrames(v uint64) option.Setting[FrameOptions] {
 	}
 }
 
-// Blink 是否是瞬时运行
-func (_FrameOption) Blink(b bool) option.Setting[FrameOptions] {
+// Mode 帧模式
+func (_FrameOption) Mode(m FrameMode) option.Setting[FrameOptions] {
 	return func(o *FrameOptions) {
-		o.blink = b
+		o.Mode = m
 	}
 }

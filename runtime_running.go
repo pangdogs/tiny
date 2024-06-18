@@ -8,7 +8,17 @@ import (
 	"git.golaxy.org/tiny/plugin"
 	"git.golaxy.org/tiny/runtime"
 	"git.golaxy.org/tiny/utils/generic"
+	"time"
 )
+
+var (
+	ErrCtrlChanClosed = fmt.Errorf("%w: ctrl chan is closed", ErrRuntime) // 运行控制已关闭
+)
+
+type _Ctrl struct {
+	at     bool
+	frames int64
+}
 
 // Run 运行
 func (rt *RuntimeBehavior) Run() <-chan struct{} {
@@ -29,6 +39,112 @@ func (rt *RuntimeBehavior) Run() <-chan struct{} {
 	go rt.running()
 
 	return gctx.UnsafeContext(ctx).GetTerminatedChan()
+}
+
+// Play 播放指定时长
+func (rt *RuntimeBehavior) Play(delta time.Duration) (err error) {
+	frame := rt.opts.Frame
+
+	if frame == nil || frame.GetMode() != runtime.Manual {
+		return ErrCtrlChanClosed
+	}
+
+	defer func() {
+		if panicInfo := recover(); panicInfo != nil {
+			err = ErrCtrlChanClosed
+		}
+	}()
+
+	frames := int64(delta.Seconds() * float64(rt.opts.Frame.GetTargetFPS()))
+	if frames <= 0 {
+		return nil
+	}
+
+	rt.ctrlChan <- _Ctrl{
+		at:     false,
+		frames: frames,
+	}
+
+	return nil
+}
+
+// PlayAt 播放至指定位置
+func (rt *RuntimeBehavior) PlayAt(at time.Duration) (err error) {
+	frame := rt.opts.Frame
+
+	if frame == nil || frame.GetMode() != runtime.Manual {
+		return ErrCtrlChanClosed
+	}
+
+	defer func() {
+		if panicInfo := recover(); panicInfo != nil {
+			err = ErrCtrlChanClosed
+		}
+	}()
+
+	frames := int64(at.Seconds() * float64(rt.opts.Frame.GetTargetFPS()))
+	if frames <= 0 {
+		return nil
+	}
+
+	rt.ctrlChan <- _Ctrl{
+		at:     false,
+		frames: frames,
+	}
+
+	return nil
+}
+
+// PlayFrames 播放指定帧数
+func (rt *RuntimeBehavior) PlayFrames(delta int64) (err error) {
+	frame := rt.opts.Frame
+
+	if frame == nil || frame.GetMode() != runtime.Manual {
+		return ErrCtrlChanClosed
+	}
+
+	defer func() {
+		if panicInfo := recover(); panicInfo != nil {
+			err = ErrCtrlChanClosed
+		}
+	}()
+
+	if delta <= 0 {
+		return nil
+	}
+
+	rt.ctrlChan <- _Ctrl{
+		at:     false,
+		frames: delta,
+	}
+
+	return nil
+}
+
+// PlayAtFrames 播放至指定帧数
+func (rt *RuntimeBehavior) PlayAtFrames(at int64) (err error) {
+	frame := rt.opts.Frame
+
+	if frame == nil || frame.GetMode() != runtime.Manual {
+		return ErrCtrlChanClosed
+	}
+
+	defer func() {
+		if panicInfo := recover(); panicInfo != nil {
+			err = ErrCtrlChanClosed
+		}
+	}()
+
+	if at <= 0 {
+		return nil
+	}
+
+	rt.ctrlChan <- _Ctrl{
+		at:     true,
+		frames: at,
+	}
+
+	return nil
 }
 
 // Terminate 停止
@@ -162,7 +278,14 @@ func (rt *RuntimeBehavior) mainLoop() {
 	if frame == nil {
 		rt.loopingNoFrame()
 	} else {
-		rt.loopingWithFrame()
+		switch frame.GetMode() {
+		case runtime.Simulate:
+			rt.loopingSimulate()
+		case runtime.Manual:
+			rt.loopingManual()
+		default:
+			rt.loopingRealTime()
+		}
 	}
 }
 

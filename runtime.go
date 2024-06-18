@@ -52,6 +52,7 @@ type RuntimeBehavior struct {
 	ctx             runtime.Context
 	opts            RuntimeOptions
 	hooksMap        map[uid.Id][3]event.Hook
+	ctrlChan        chan _Ctrl
 	processQueue    chan _Task
 	eventUpdate     event.Event
 	eventLateUpdate event.Event
@@ -89,7 +90,14 @@ func (rt *RuntimeBehavior) init(ctx runtime.Context, opts RuntimeOptions) {
 	}
 
 	rt.hooksMap = make(map[uid.Id][3]event.Hook)
-	rt.processQueue = make(chan _Task, rt.opts.ProcessQueueCapacity)
+
+	if rt.opts.Frame == nil || rt.opts.Frame.GetMode() != runtime.Simulate {
+		rt.processQueue = make(chan _Task, rt.opts.ProcessQueueCapacity)
+	}
+
+	if rt.opts.Frame != nil && rt.opts.Frame.GetMode() == runtime.Manual {
+		rt.ctrlChan = make(chan _Ctrl)
+	}
 
 	rt.eventUpdate.Init(ctx.GetAutoRecover(), ctx.GetReportError(), event.EventRecursion_Disallow)
 	rt.eventLateUpdate.Init(ctx.GetAutoRecover(), ctx.GetReportError(), event.EventRecursion_Disallow)

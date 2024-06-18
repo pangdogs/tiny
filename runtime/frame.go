@@ -20,10 +20,12 @@ type Frame interface {
 	GetTargetFPS() float32
 	// GetCurFPS 获取当前FPS
 	GetCurFPS() float32
+	// GetMode 获取帧模式
+	GetMode() FrameMode
 	// GetTotalFrames 获取运行帧数上限
-	GetTotalFrames() uint64
+	GetTotalFrames() int64
 	// GetCurFrames 获取当前帧数
-	GetCurFrames() uint64
+	GetCurFrames() int64
 	// GetRunningBeginTime 获取运行开始时间
 	GetRunningBeginTime() time.Time
 	// GetRunningElapseTime 获取运行持续时间
@@ -39,7 +41,7 @@ type Frame interface {
 }
 
 type iFrame interface {
-	setCurFrames(v uint64)
+	setCurFrames(v int64)
 	runningBegin()
 	runningEnd()
 	loopBegin()
@@ -51,8 +53,7 @@ type iFrame interface {
 type _FrameBehavior struct {
 	options              FrameOptions
 	curFPS               float32
-	curFrames            uint64
-	blinkFrameTime       time.Duration
+	curFrames            int64
 	runningBeginTime     time.Time
 	runningElapseTime    time.Duration
 	loopBeginTime        time.Time
@@ -60,7 +61,8 @@ type _FrameBehavior struct {
 	updateBeginTime      time.Time
 	lastUpdateElapseTime time.Duration
 	statFPSBeginTime     time.Time
-	statFPSFrames        uint64
+	statFPSFrames        int64
+	fixedLoopElapseTime  time.Duration
 }
 
 // GetTargetFPS 获取目标FPS
@@ -73,13 +75,18 @@ func (frame *_FrameBehavior) GetCurFPS() float32 {
 	return frame.curFPS
 }
 
+// GetMode 获取帧模式
+func (frame *_FrameBehavior) GetMode() FrameMode {
+	return frame.options.Mode
+}
+
 // GetTotalFrames 获取运行帧数上限
-func (frame *_FrameBehavior) GetTotalFrames() uint64 {
+func (frame *_FrameBehavior) GetTotalFrames() int64 {
 	return frame.options.TotalFrames
 }
 
 // GetCurFrames 获取当前帧数
-func (frame *_FrameBehavior) GetCurFrames() uint64 {
+func (frame *_FrameBehavior) GetCurFrames() int64 {
 	return frame.curFrames
 }
 
@@ -115,20 +122,16 @@ func (frame *_FrameBehavior) GetLastUpdateElapseTime() time.Duration {
 
 func (frame *_FrameBehavior) init(opts FrameOptions) {
 	frame.options = opts
-
-	if frame.options.blink {
-		frame.blinkFrameTime = time.Duration(float64(time.Second) / float64(frame.options.TargetFPS))
-	}
 }
 
-func (frame *_FrameBehavior) setCurFrames(v uint64) {
+func (frame *_FrameBehavior) setCurFrames(v int64) {
 	frame.curFrames = v
 }
 
 func (frame *_FrameBehavior) runningBegin() {
 	now := time.Now()
 
-	frame.curFPS = 0
+	frame.curFPS = frame.options.TargetFPS
 	frame.curFrames = 0
 
 	frame.statFPSBeginTime = now
@@ -142,37 +145,59 @@ func (frame *_FrameBehavior) runningBegin() {
 
 	frame.updateBeginTime = now
 	frame.lastUpdateElapseTime = 0
-}
 
-func (frame *_FrameBehavior) runningEnd() {
-	if frame.options.blink {
-		frame.curFPS = float32(float64(frame.curFrames) / time.Now().Sub(frame.runningBeginTime).Seconds())
+	switch frame.options.Mode {
+	case Simulate, Manual:
+		frame.fixedLoopElapseTime = time.Second / time.Duration(frame.options.TargetFPS)
 	}
 }
 
+func (frame *_FrameBehavior) runningEnd() {}
+
 func (frame *_FrameBehavior) loopBegin() {
-	now := time.Now()
+	switch frame.options.Mode {
+	case Simulate, Manual:
+		frame.loopBeginTime = frame.runningBeginTime.Add(frame.fixedLoopElapseTime * time.Duration(frame.curFrames))
 
-	frame.loopBeginTime = now
+	default:
+		frame.loopBeginTime = time.Now()
 
-	statInterval := now.Sub(frame.statFPSBeginTime).Seconds()
-	if statInterval >= 1 {
-		frame.curFPS = float32(float64(frame.statFPSFrames) / statInterval)
-		frame.statFPSBeginTime = now
-		frame.statFPSFrames = 0
+		statInterval := frame.loopBeginTime.Sub(frame.statFPSBeginTime).Seconds()
+		if statInterval >= 1 {
+			frame.curFPS = float32(float64(frame.statFPSFrames) / statInterval)
+			frame.statFPSBeginTime = frame.loopBeginTime
+			frame.statFPSFrames = 0
+		}
 	}
 }
 
 func (frame *_FrameBehavior) loopEnd() {
-	frame.lastLoopElapseTime = time.Now().Sub(frame.loopBeginTime)
-	frame.runningElapseTime += frame.lastLoopElapseTime
-	frame.statFPSFrames++
+	switch frame.options.Mode {
+	case Simulate, Manual:
+		frame.lastLoopElapseTime = frame.fixedLoopElapseTime
+		frame.runningElapseTime += frame.fixedLoopElapseTime
+
+	default:
+		frame.lastLoopElapseTime = time.Now().Sub(frame.loopBeginTime)
+		frame.runningElapseTime += frame.lastLoopElapseTime
+		frame.statFPSFrames++
+	}
 }
 
 func (frame *_FrameBehavior) updateBegin() {
-	frame.updateBeginTime = time.Now()
+	switch frame.options.Mode {
+	case Simulate, Manual:
+		frame.updateBeginTime = frame.runningBeginTime.Add(frame.fixedLoopElapseTime * time.Duration(frame.curFrames))
+	default:
+		frame.updateBeginTime = time.Now()
+	}
 }
 
 func (frame *_FrameBehavior) updateEnd() {
-	frame.lastUpdateElapseTime = time.Now().Sub(frame.updateBeginTime)
+	switch frame.options.Mode {
+	case Simulate, Manual:
+		frame.lastUpdateElapseTime = frame.fixedLoopElapseTime
+	default:
+		frame.lastUpdateElapseTime = time.Now().Sub(frame.updateBeginTime)
+	}
 }
