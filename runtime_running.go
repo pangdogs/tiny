@@ -233,7 +233,7 @@ func (rt *RuntimeBehavior) shutPlugin() {
 
 func (rt *RuntimeBehavior) activatePlugin(pluginInfo plugin.PluginInfo) {
 	if pluginInit, ok := pluginInfo.Face.Iface.(LifecyclePluginInit); ok {
-		generic.MakeAction1(pluginInit.Init).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError(), rt.ctx)
+		generic.MakeAction1(pluginInit.InitP).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError(), rt.ctx)
 	}
 	plugin.UnsafePluginBundle(rt.ctx.GetPluginBundle()).SetActive(pluginInfo.Name, true)
 }
@@ -241,7 +241,7 @@ func (rt *RuntimeBehavior) activatePlugin(pluginInfo plugin.PluginInfo) {
 func (rt *RuntimeBehavior) deactivatePlugin(pluginInfo plugin.PluginInfo) {
 	plugin.UnsafePluginBundle(rt.ctx.GetPluginBundle()).SetActive(pluginInfo.Name, false)
 	if pluginShut, ok := pluginInfo.Face.Iface.(LifecyclePluginShut); ok {
-		generic.MakeAction1(pluginShut.Shut).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError(), rt.ctx)
+		generic.MakeAction1(pluginShut.ShutP).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError(), rt.ctx)
 	}
 }
 
