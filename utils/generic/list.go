@@ -7,6 +7,7 @@ func NewList[T any]() *List[T] {
 
 // List 链表，可以在遍历时在任意位置添加或删除元素，递归添加或删除元素时仍然能正常工作，非线程安全。
 type List[T any] struct {
+	New  Func1[T, *Element[T]]
 	root Element[T]
 	len  int
 	ver  int64
@@ -187,16 +188,19 @@ func (l *List[T]) lazyInit() {
 	}
 	l.root._next = &l.root
 	l.root._prev = &l.root
+	if l.New == nil {
+		l.New = _NewElement[T]
+	}
 }
 
 // insertValue 插入数据
 func (l *List[T]) insertValue(value T, at *Element[T]) *Element[T] {
-	return l.insert(_NewElement(value), at)
+	l.lazyInit()
+	return l.insert(l.New(value), at)
 }
 
 // insert 插入元素
 func (l *List[T]) insert(e, at *Element[T]) *Element[T] {
-	l.lazyInit()
 	e._prev = at
 	e._next = at._next
 	e._prev._next = e

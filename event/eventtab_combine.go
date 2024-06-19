@@ -1,12 +1,14 @@
 package event
 
+import "git.golaxy.org/tiny/utils/pool"
+
 // CombineEventTab 联合事件表，可以将多个事件表联合在一起，方便管理多个事件表
 type CombineEventTab []IEventTab
 
 // Init 初始化事件
-func (c *CombineEventTab) Init(autoRecover bool, reportError chan error, recursion EventRecursion) {
+func (c *CombineEventTab) Init(autoRecover bool, reportError chan error, recursion EventRecursion, managed pool.ManagedPoolObject) {
 	for _, tab := range *c {
-		tab.Init(autoRecover, reportError, recursion)
+		tab.Init(autoRecover, reportError, recursion, managed)
 	}
 }
 

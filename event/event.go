@@ -5,6 +5,7 @@ import (
 	"git.golaxy.org/tiny/utils/exception"
 	"git.golaxy.org/tiny/utils/generic"
 	"git.golaxy.org/tiny/utils/iface"
+	"git.golaxy.org/tiny/utils/pool"
 )
 
 // EventRecursion 发生事件递归时的处理方式（事件递归：事件发送过程中，在订阅者的逻辑中，再次发送这个事件）
@@ -90,7 +91,7 @@ type IEvent interface {
 // IEventCtrl 事件控制接口
 type IEventCtrl interface {
 	// Init 初始化事件
-	Init(autoRecover bool, reportError chan error, recursion EventRecursion)
+	Init(autoRecover bool, reportError chan error, recursion EventRecursion, managed pool.ManagedPoolObject)
 	// Open 打开事件
 	Open()
 	// Close 关闭事件
@@ -99,12 +100,17 @@ type IEventCtrl interface {
 	Clean()
 }
 
+var (
+	_ListElementHookPool = pool.Declare[generic.Element[Hook]]()
+)
+
 // Event 事件
 type Event struct {
 	subscribers    generic.List[Hook]
 	autoRecover    bool
 	reportError    chan error
 	eventRecursion EventRecursion
+	managed        pool.ManagedPoolObject
 	emitted        int32
 	emitDepth      int32
 	opened         bool
@@ -112,7 +118,7 @@ type Event struct {
 }
 
 // Init 初始化事件
-func (event *Event) Init(autoRecover bool, reportError chan error, eventRecursion EventRecursion) {
+func (event *Event) Init(autoRecover bool, reportError chan error, eventRecursion EventRecursion, managed pool.ManagedPoolObject) {
 	if event.inited {
 		panic(fmt.Errorf("%w: event is already initialized", ErrEvent))
 	}
@@ -120,6 +126,8 @@ func (event *Event) Init(autoRecover bool, reportError chan error, eventRecursio
 	event.autoRecover = autoRecover
 	event.reportError = reportError
 	event.eventRecursion = eventRecursion
+	event.managed = managed
+	event.subscribers.New = event.managedGetListElementHook
 	event.inited = true
 
 	event.Open()
@@ -252,4 +260,13 @@ func (event *Event) removeSubscriber(subscriber any) {
 		}
 		return true
 	})
+}
+
+func (event *Event) managedGetListElementHook(hook Hook) *generic.Element[Hook] {
+	if event.managed == nil {
+		return &generic.Element[Hook]{Value: hook}
+	}
+	obj := pool.ManagedGet[generic.Element[Hook]](event.managed, _ListElementHookPool)
+	obj.Value = hook
+	return obj
 }

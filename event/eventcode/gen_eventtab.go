@@ -82,7 +82,7 @@ type I%[1]s interface {
 				eventRecursion = "recursion"
 			}
 
-			eventsRecursionCode += fmt.Sprintf("\t(*eventTab)[%d].Init(autoRecover, reportError, %s)\n", i, eventRecursion)
+			eventsRecursionCode += fmt.Sprintf("\t(*eventTab)[%d].Init(autoRecover, reportError, %s, managed)\n", i, eventRecursion)
 		}
 
 		// 生成事件Id
@@ -103,7 +103,7 @@ var (`)
 		fmt.Fprintf(code, `
 type %[1]s [%[2]d]%[4]sEvent
 
-func (eventTab *%[1]s) Init(autoRecover bool, reportError chan error, recursion %[4]sEventRecursion) {
+func (eventTab *%[1]s) Init(autoRecover bool, reportError chan error, recursion %[4]sEventRecursion, managed) {
 %[3]s}
 
 func (eventTab *%[1]s) Get(id uint64) %[4]sIEvent {

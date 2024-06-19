@@ -8,6 +8,7 @@ import (
 	"git.golaxy.org/tiny/utils/iface"
 	"git.golaxy.org/tiny/utils/meta"
 	"git.golaxy.org/tiny/utils/option"
+	"git.golaxy.org/tiny/utils/pool"
 	"git.golaxy.org/tiny/utils/reinterpret"
 	"git.golaxy.org/tiny/utils/uid"
 	"reflect"
@@ -65,6 +66,10 @@ type iEntity interface {
 	eventEntityDestroySelf() event.IEvent
 	cleanManagedHooks()
 }
+
+var (
+	_ListElementFaceAnyPool = pool.Declare[generic.Element[iface.FaceAny]]()
+)
 
 // EntityBehavior 实体行为，在需要扩展实体能力时，匿名嵌入至实体结构体中
 type EntityBehavior struct {
@@ -150,14 +155,16 @@ func (entity *EntityBehavior) init(opts EntityOptions) {
 		entity.opts.CompositeFace = iface.MakeFaceT[Entity](entity)
 	}
 
-	entity._eventEntityDestroySelf.Init(false, nil, event.EventRecursion_Discard)
-	entity.eventComponentMgrAddComponents.Init(false, nil, event.EventRecursion_Allow)
-	entity.eventComponentMgrRemoveComponent.Init(false, nil, event.EventRecursion_Allow)
-	entity.eventComponentMgrFirstAccessComponent.Init(false, nil, event.EventRecursion_Allow)
-	entity.eventTreeNodeAddChild.Init(false, nil, event.EventRecursion_Allow)
-	entity.eventTreeNodeRemoveChild.Init(false, nil, event.EventRecursion_Allow)
-	entity.eventTreeNodeEnterParent.Init(false, nil, event.EventRecursion_Allow)
-	entity.eventTreeNodeLeaveParent.Init(false, nil, event.EventRecursion_Allow)
+	entity.componentList.New = entity.managedGetListElementFaceAny
+
+	entity._eventEntityDestroySelf.Init(false, nil, event.EventRecursion_Discard, entity.opts.ManagedPoolObject)
+	entity.eventComponentMgrAddComponents.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPoolObject)
+	entity.eventComponentMgrRemoveComponent.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPoolObject)
+	entity.eventComponentMgrFirstAccessComponent.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPoolObject)
+	entity.eventTreeNodeAddChild.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPoolObject)
+	entity.eventTreeNodeRemoveChild.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPoolObject)
+	entity.eventTreeNodeEnterParent.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPoolObject)
+	entity.eventTreeNodeLeaveParent.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPoolObject)
 }
 
 func (entity *EntityBehavior) getOptions() *EntityOptions {
@@ -203,4 +210,13 @@ func (entity *EntityBehavior) setReflected(v reflect.Value) {
 
 func (entity *EntityBehavior) eventEntityDestroySelf() event.IEvent {
 	return &entity._eventEntityDestroySelf
+}
+
+func (entity *EntityBehavior) managedGetListElementFaceAny(face iface.FaceAny) *generic.Element[iface.FaceAny] {
+	if entity.opts.ManagedPoolObject == nil {
+		return &generic.Element[iface.FaceAny]{Value: face}
+	}
+	obj := pool.ManagedGet[generic.Element[iface.FaceAny]](entity.opts.ManagedPoolObject, _ListElementFaceAnyPool)
+	obj.Value = face
+	return obj
 }

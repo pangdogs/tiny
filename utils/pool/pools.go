@@ -8,7 +8,13 @@ var pools = map[string]*Pool{}
 
 func Declare[T any]() *Pool {
 	pool := NewPool[T]()
+
+	existed, ok := pools[pool.Name()]
+	if ok {
+		return existed
+	}
 	pools[pool.Name()] = pool
+
 	return pool
 }
 
@@ -16,8 +22,8 @@ func Get[T any](name string) *T {
 	return pools[name].Get().(*T)
 }
 
-func Put[T any](name string, v *T) {
-	pools[name].Put(v)
+func Put[T any](name string, obj *T) {
+	pools[name].Put(obj)
 }
 
 type Info struct {

@@ -13,9 +13,9 @@ func NewPool[T any]() *Pool {
 		atomic.AddInt64(&pool.allocNum, 1)
 		return types.NewT[T]()
 	}
-	pool.zero = func(v any) any {
-		*(v.(*T)) = types.ZeroT[T]()
-		return v
+	pool.zero = func(obj any) any {
+		*(obj.(*T)) = types.ZeroT[T]()
+		return obj
 	}
 	return pool
 }
@@ -23,7 +23,7 @@ func NewPool[T any]() *Pool {
 type Pool struct {
 	name                     string
 	pool                     sync.Pool
-	zero                     func(v any) any
+	zero                     func(obj any) any
 	allocNum, getNum, putNum int64
 }
 
@@ -31,8 +31,8 @@ func (p *Pool) Name() string {
 	return p.name
 }
 
-func (p *Pool) Put(v any) {
-	p.pool.Put(p.zero(v))
+func (p *Pool) Put(obj any) {
+	p.pool.Put(p.zero(obj))
 	atomic.AddInt64(&p.putNum, 1)
 }
 

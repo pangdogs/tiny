@@ -10,6 +10,7 @@ import (
 	"git.golaxy.org/tiny/utils/exception"
 	"git.golaxy.org/tiny/utils/iface"
 	"git.golaxy.org/tiny/utils/option"
+	"git.golaxy.org/tiny/utils/pool"
 	"git.golaxy.org/tiny/utils/reinterpret"
 	"git.golaxy.org/tiny/utils/uid"
 	"reflect"
@@ -41,6 +42,7 @@ type Context interface {
 	async.Caller
 	reinterpret.CompositeProvider
 	plugin.PluginProvider
+	pool.ManagedPoolObject
 	GCCollector
 
 	// GetReflected 获取反射值
@@ -55,6 +57,8 @@ type Context interface {
 	ActivateEvent(event event.IEventCtrl, recursion event.EventRecursion)
 	// ManagedHooks 托管hook，在运行时停止时自动解绑定
 	ManagedHooks(hooks ...event.Hook)
+	// AutoManagedPoolObject 自动判断托管对象池
+	AutoManagedPoolObject() pool.ManagedPoolObject
 }
 
 type iContext interface {
@@ -70,14 +74,15 @@ type iContext interface {
 // ContextBehavior 运行时上下文行为，在需要扩展运行时上下文能力时，匿名嵌入至运行时上下文结构体中
 type ContextBehavior struct {
 	gctx.ContextBehavior
-	opts         ContextOptions
-	genId        uid.Id
-	reflected    reflect.Value
-	frame        Frame
-	entityMgr    _EntityMgrBehavior
-	callee       async.Callee
-	managedHooks []event.Hook
-	gcList       []GC
+	opts               ContextOptions
+	genId              uid.Id
+	reflected          reflect.Value
+	frame              Frame
+	entityMgr          _EntityMgrBehavior
+	callee             async.Callee
+	managedHooks       []event.Hook
+	managedPoolObjects []pool.PoolObject
+	gcList             []GC
 }
 
 // GetReflected 获取反射值
@@ -105,7 +110,7 @@ func (ctx *ContextBehavior) ActivateEvent(event event.IEventCtrl, recursion even
 	if event == nil {
 		panic(fmt.Errorf("%w: %w: event is nil", ErrContext, exception.ErrArgs))
 	}
-	event.Init(ctx.GetAutoRecover(), ctx.GetReportError(), recursion)
+	event.Init(ctx.GetAutoRecover(), ctx.GetReportError(), recursion, ctx.AutoManagedPoolObject())
 }
 
 // GetCurrentContext 获取当前上下文
@@ -143,6 +148,10 @@ func (ctx *ContextBehavior) init(opts ContextOptions) {
 		ctx.opts.Context = context.Background()
 	}
 
+	if ctx.opts.UseObjectPool {
+		ctx.managedPoolObjects = make([]pool.PoolObject, 0, ctx.opts.UseObjectPoolSize)
+	}
+
 	gctx.UnsafeContext(&ctx.ContextBehavior).Init(ctx.opts.Context, ctx.opts.AutoRecover, ctx.opts.ReportError)
 	ctx.reflected = reflect.ValueOf(ctx.opts.CompositeFace.Iface)
 	ctx.entityMgr.init(ctx.opts.CompositeFace.Iface)
@@ -172,5 +181,6 @@ func (ctx *ContextBehavior) changeRunningState(state RunningState) {
 	switch state {
 	case RunningState_Terminated:
 		ctx.cleanManagedHooks()
+		ctx.cleanManagedPoolObjects()
 	}
 }
