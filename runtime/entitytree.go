@@ -339,6 +339,7 @@ func (mgr *_EntityMgrBehavior) enterParent(entity, parent ec.Entity) {
 	}
 	if parentNode.children == nil {
 		parentNode.children = generic.NewList[iface.FaceAny]()
+		parentNode.children.New = mgr.managedGetListElementFaceAny
 	}
 
 	node, ok := mgr.treeNodes[entity.GetId()]

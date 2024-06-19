@@ -8,6 +8,7 @@ import (
 	"git.golaxy.org/tiny/utils/exception"
 	"git.golaxy.org/tiny/utils/generic"
 	"git.golaxy.org/tiny/utils/iface"
+	"git.golaxy.org/tiny/utils/pool"
 	"git.golaxy.org/tiny/utils/uid"
 )
 
@@ -41,6 +42,10 @@ type EntityMgr interface {
 	iAutoEventEntityMgrEntityFirstAccessComponent // 事件：实体管理器中的实体首次访问组件
 }
 
+var (
+	_ListElementFaceAnyPool = pool.Declare[generic.Element[iface.FaceAny]]()
+)
+
 type _EntityEntry struct {
 	at    *generic.Element[iface.FaceAny]
 	hooks [3]event.Hook
@@ -73,6 +78,8 @@ func (mgr *_EntityMgrBehavior) init(ctx Context) {
 	mgr.ctx = ctx
 	mgr.entityIdx = map[uid.Id]*_EntityEntry{}
 	mgr.treeNodes = map[uid.Id]*_TreeNode{}
+
+	mgr.entityList.New = mgr.managedGetListElementFaceAny
 
 	ctx.ActivateEvent(&mgr.eventEntityMgrAddEntity, event.EventRecursion_Allow)
 	ctx.ActivateEvent(&mgr.eventEntityMgrRemoveEntity, event.EventRecursion_Allow)
@@ -362,4 +369,13 @@ func (mgr *_EntityMgrBehavior) fetchParent(entity ec.Entity, parentId uid.Id) (e
 	}
 
 	return parent, nil
+}
+
+func (mgr *_EntityMgrBehavior) managedGetListElementFaceAny(face iface.FaceAny) *generic.Element[iface.FaceAny] {
+	if !mgr.ctx.getOptions().UseObjectPool {
+		return &generic.Element[iface.FaceAny]{Value: face}
+	}
+	obj := pool.ManagedGet[generic.Element[iface.FaceAny]](mgr.ctx, _ListElementFaceAnyPool)
+	obj.Value = face
+	return obj
 }
