@@ -2,6 +2,7 @@ package pool
 
 import (
 	"git.golaxy.org/tiny/utils/generic"
+	"git.golaxy.org/tiny/utils/types"
 	"reflect"
 )
 
@@ -28,6 +29,7 @@ func Get[T any](name string) *T {
 }
 
 func Put[T any](name string, v *T) {
+	*v = types.ZeroT[T]()
 	pools[name].Put(v)
 }
 
