@@ -2,24 +2,12 @@ package pool
 
 import (
 	"git.golaxy.org/tiny/utils/generic"
-	"git.golaxy.org/tiny/utils/types"
-	"reflect"
 )
 
 var pools = map[string]*Pool{}
 
-func Declare(i any) *Pool {
-	return DeclareRT(reflect.TypeOf(i))
-}
-
-func DeclareRT(t reflect.Type) *Pool {
-	pool := NewPoolRT(t)
-	pools[pool.Name()] = pool
-	return pool
-}
-
-func DeclareT[T any]() *Pool {
-	pool := NewPoolT[T]()
+func Declare[T any]() *Pool {
+	pool := NewPool[T]()
 	pools[pool.Name()] = pool
 	return pool
 }
@@ -29,7 +17,6 @@ func Get[T any](name string) *T {
 }
 
 func Put[T any](name string, v *T) {
-	*v = types.ZeroT[T]()
 	pools[name].Put(v)
 }
 

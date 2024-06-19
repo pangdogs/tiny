@@ -2,31 +2,20 @@ package pool
 
 import (
 	"git.golaxy.org/tiny/utils/types"
-	"reflect"
 	"sync"
 	"sync/atomic"
 )
 
-func NewPool(i any) *Pool {
-	return NewPoolRT(reflect.TypeOf(i))
-}
-
-func NewPoolRT(t reflect.Type) *Pool {
-	pool := &Pool{}
-	pool.name = types.FullNameRT(t)
-	pool.pool.New = func() any {
-		atomic.AddInt64(&pool.allocNum, 1)
-		return reflect.New(t)
-	}
-	return pool
-}
-
-func NewPoolT[T any]() *Pool {
+func NewPool[T any]() *Pool {
 	pool := &Pool{}
 	pool.name = types.FullNameT[T]()
 	pool.pool.New = func() any {
 		atomic.AddInt64(&pool.allocNum, 1)
 		return types.NewT[T]()
+	}
+	pool.zero = func(v any) any {
+		*(v.(*T)) = types.ZeroT[T]()
+		return v
 	}
 	return pool
 }
@@ -34,6 +23,7 @@ func NewPoolT[T any]() *Pool {
 type Pool struct {
 	name                     string
 	pool                     sync.Pool
+	zero                     func(v any) any
 	allocNum, getNum, putNum int64
 }
 
@@ -42,7 +32,7 @@ func (p *Pool) Name() string {
 }
 
 func (p *Pool) Put(v any) {
-	p.pool.Put(v)
+	p.pool.Put(p.zero(v))
 	atomic.AddInt64(&p.putNum, 1)
 }
 
