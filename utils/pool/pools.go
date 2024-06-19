@@ -32,6 +32,7 @@ func Stat() []Info {
 
 	for name, pool := range pools {
 		infos.Add(name, Info{
+			Name:       pool.Name(),
 			TotalAlloc: pool.TotalAlloc(),
 			TotalGet:   pool.TotalGet(),
 			TotalPut:   pool.TotalPut(),
