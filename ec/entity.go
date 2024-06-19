@@ -59,6 +59,7 @@ type iEntity interface {
 	getOptions() *EntityOptions
 	setId(id uid.Id)
 	setContext(ctx iface.Cache)
+	getVersion() int64
 	setState(state EntityState)
 	setReflected(v reflect.Value)
 	eventEntityDestroySelf() event.IEvent
@@ -169,6 +170,10 @@ func (entity *EntityBehavior) setId(id uid.Id) {
 
 func (entity *EntityBehavior) setContext(ctx iface.Cache) {
 	entity.context = ctx
+}
+
+func (entity *EntityBehavior) getVersion() int64 {
+	return entity.componentList.Version()
 }
 
 func (entity *EntityBehavior) setState(state EntityState) {

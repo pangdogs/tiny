@@ -38,6 +38,11 @@ func (ue _UnsafeEntity) SetContext(ctx iface.Cache) {
 	ue.setContext(ctx)
 }
 
+// GetVersion 获取组件列表变化版本号
+func (ue _UnsafeEntity) GetVersion() int64 {
+	return ue.getVersion()
+}
+
 // SetState 设置状态
 func (ue _UnsafeEntity) SetState(state EntityState) {
 	ue.setState(state)
