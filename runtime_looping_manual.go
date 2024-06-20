@@ -55,7 +55,7 @@ loop:
 				goto pause
 			}
 		case _FuncAt:
-			if curCtrl.fun.Exec() {
+			if curCtrl.fun.Exec(rt.ctx) {
 				curCtrl = _Ctrl{}
 				goto pause
 			}

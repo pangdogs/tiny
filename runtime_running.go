@@ -27,7 +27,7 @@ const (
 type _Ctrl struct {
 	mode   _CtrlMode
 	frames int64
-	fun    generic.Func0[bool]
+	fun    generic.Func1[runtime.Context, bool]
 }
 
 // Run 运行
@@ -158,7 +158,7 @@ func (rt *RuntimeBehavior) PlayAtFrames(at int64) (err error) {
 }
 
 // PlayAtFunc 播放至函数指定位置
-func (rt *RuntimeBehavior) PlayAtFunc(fun generic.Func0[bool]) (err error) {
+func (rt *RuntimeBehavior) PlayAtFunc(fun generic.Func1[runtime.Context, bool]) (err error) {
 	frame := rt.opts.Frame
 
 	if frame == nil || frame.GetMode() != runtime.Manual {
