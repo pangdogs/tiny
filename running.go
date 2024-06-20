@@ -1,6 +1,9 @@
 package tiny
 
-import "time"
+import (
+	"git.golaxy.org/tiny/utils/generic"
+	"time"
+)
 
 // Running 运行接口
 type Running interface {
@@ -14,6 +17,8 @@ type Running interface {
 	PlayFrames(delta int64) error
 	// PlayAtFrames 播放至指定帧数
 	PlayAtFrames(at int64) error
+	// PlayAtFunc 播放至函数指定位置
+	PlayAtFunc(fun generic.Func0[bool]) error
 	// Terminate 停止
 	Terminate() <-chan struct{}
 	// TerminatedChan 已停止chan

@@ -10,7 +10,7 @@ func (rt *RuntimeBehavior) loopingManual() {
 	totalFrames := frame.GetTotalFrames()
 	gcFrames := int64(rt.opts.GCInterval.Seconds() * float64(frame.GetTargetFPS()))
 
-	var pauseFrame int64
+	var curCtrl _Ctrl
 
 loop:
 	for rt.frameLoopBegin(); ; {
@@ -24,19 +24,20 @@ loop:
 			rt.runGC()
 		}
 
-		if frame.GetCurFrames() >= pauseFrame {
-		waiting:
+	pause:
+		switch curCtrl.mode {
+		case _NoCtrl:
 			for {
 				select {
 				case ctrl := <-rt.ctrlChan:
-					if ctrl.at {
-						if pauseFrame < ctrl.frames {
-							pauseFrame = ctrl.frames
-						}
-					} else {
-						pauseFrame += ctrl.frames
+					curCtrl = ctrl
+
+					if curCtrl.mode == _FrameDelta {
+						curCtrl.mode = _FrameAt
+						curCtrl.frames += curFrames
 					}
-					break waiting
+
+					goto pause
 
 				case task, ok := <-rt.processQueue:
 					if !ok {
@@ -47,6 +48,16 @@ loop:
 				case <-rt.ctx.Done():
 					break loop
 				}
+			}
+		case _FrameAt:
+			if curFrames >= curCtrl.frames {
+				curCtrl = _Ctrl{}
+				goto pause
+			}
+		case _FuncAt:
+			if curCtrl.fun.Exec() {
+				curCtrl = _Ctrl{}
+				goto pause
 			}
 		}
 

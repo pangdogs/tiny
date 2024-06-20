@@ -15,9 +15,19 @@ var (
 	ErrCtrlChanClosed = fmt.Errorf("%w: ctrl chan is closed", ErrRuntime) // 运行控制已关闭
 )
 
+type _CtrlMode int32
+
+const (
+	_NoCtrl _CtrlMode = iota
+	_FrameDelta
+	_FrameAt
+	_FuncAt
+)
+
 type _Ctrl struct {
-	at     bool
+	mode   _CtrlMode
 	frames int64
+	fun    generic.Func0[bool]
 }
 
 // Run 运行
@@ -61,7 +71,7 @@ func (rt *RuntimeBehavior) Play(delta time.Duration) (err error) {
 	}
 
 	rt.ctrlChan <- _Ctrl{
-		at:     false,
+		mode:   _FrameDelta,
 		frames: frames,
 	}
 
@@ -88,7 +98,7 @@ func (rt *RuntimeBehavior) PlayAt(at time.Duration) (err error) {
 	}
 
 	rt.ctrlChan <- _Ctrl{
-		at:     false,
+		mode:   _FrameAt,
 		frames: frames,
 	}
 
@@ -114,7 +124,7 @@ func (rt *RuntimeBehavior) PlayFrames(delta int64) (err error) {
 	}
 
 	rt.ctrlChan <- _Ctrl{
-		at:     false,
+		mode:   _FrameDelta,
 		frames: delta,
 	}
 
@@ -140,8 +150,30 @@ func (rt *RuntimeBehavior) PlayAtFrames(at int64) (err error) {
 	}
 
 	rt.ctrlChan <- _Ctrl{
-		at:     true,
+		mode:   _FrameAt,
 		frames: at,
+	}
+
+	return nil
+}
+
+// PlayAtFunc 播放至函数指定位置
+func (rt *RuntimeBehavior) PlayAtFunc(fun generic.Func0[bool]) (err error) {
+	frame := rt.opts.Frame
+
+	if frame == nil || frame.GetMode() != runtime.Manual {
+		return ErrCtrlChanClosed
+	}
+
+	defer func() {
+		if panicInfo := recover(); panicInfo != nil {
+			err = ErrCtrlChanClosed
+		}
+	}()
+
+	rt.ctrlChan <- _Ctrl{
+		mode: _FuncAt,
+		fun:  fun,
 	}
 
 	return nil
