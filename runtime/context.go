@@ -181,8 +181,6 @@ func (ctx *ContextBehavior) changeRunningState(state RunningState) {
 	switch state {
 	case RunningState_Terminated:
 		ctx.cleanManagedHooks()
-		if ctx.opts.UseObjectPool {
-			go ctx.cleanManagedPoolObjects()
-		}
+		ctx.cleanManagedPoolObjects()
 	}
 }

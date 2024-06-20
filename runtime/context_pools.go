@@ -25,9 +25,14 @@ func (ctx *ContextBehavior) cleanManagedPoolObjects() {
 	if !ctx.opts.UseObjectPool {
 		return
 	}
-	for i := range ctx.managedPoolObjects {
-		po := &ctx.managedPoolObjects[i]
-		po.Pool.Put(po.Object)
-	}
-	ctx.managedHooks = nil
+
+	managedPoolObjects := ctx.managedPoolObjects
+	ctx.managedPoolObjects = nil
+
+	go func() {
+		for i := range managedPoolObjects {
+			po := &managedPoolObjects[i]
+			po.Pool.Put(po.Object)
+		}
+	}()
 }
