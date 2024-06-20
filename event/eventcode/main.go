@@ -29,6 +29,7 @@ type CommandContext struct {
 	EventRegexp       string
 	PackageEventAlias string
 	PackageIfaceAlias string
+	PackagePoolAlias  string
 	FileData          []byte
 	FileSet           *token.FileSet
 	FileAst           *ast.File
@@ -48,6 +49,7 @@ type CommandContext struct {
 const (
 	packageEventPath = "git.golaxy.org/tiny/event"
 	packageIfacePath = "git.golaxy.org/tiny/utils/iface"
+	packagePoolPath  = "git.golaxy.org/tiny/utils/pool"
 )
 
 func main() {
@@ -56,6 +58,7 @@ func main() {
 	eventRegexp := kingpin.Flag("event_regexp", "匹配事件定义时，使用的正则表达式。").Default("^[eE]vent.+").String()
 	packageEventAlias := kingpin.Flag("package_event_alias", fmt.Sprintf("导入Golaxy框架的`%s`包时使用的别名。", packageEventPath)).Default("event").String()
 	packageIfaceAlias := kingpin.Flag("package_iface_alias", fmt.Sprintf("导入Golaxy框架的`%s`包时使用的别名。", packageIfacePath)).Default("iface").String()
+	packagePoolAlias := kingpin.Flag("package_pool_alias", fmt.Sprintf("导入Golaxy框架的`%s`包时使用的别名。", packagePoolPath)).Default("pool").String()
 
 	// 生成事件代码相关选项
 	eventCmd := kingpin.Command("gen_event", "通过定义的事件，生成事件辅助代码。")
@@ -77,6 +80,7 @@ func main() {
 	ctx.EventRegexp = strings.TrimSpace(*eventRegexp)
 	ctx.PackageEventAlias = strings.TrimSpace(*packageEventAlias)
 	ctx.PackageIfaceAlias = strings.TrimSpace(*packageIfaceAlias)
+	ctx.PackagePoolAlias = strings.TrimSpace(*packagePoolAlias)
 
 	if ctx.PackageEventAlias == "" {
 		panic("`--package_event_alias`设置的别名不能为空")
@@ -84,6 +88,10 @@ func main() {
 
 	if ctx.PackageIfaceAlias == "" {
 		panic("`--package_iface_alias`设置的别名不能为空")
+	}
+
+	if ctx.PackagePoolAlias == "" {
+		panic("`--package_pool_alias`设置的别名不能为空")
 	}
 
 	switch cmd {

@@ -31,9 +31,13 @@ package %s
 		fmt.Fprintf(importCode, "\nimport (")
 
 		fmt.Fprintf(importCode, `
-	"fmt"
-	%s "%s"
-	%s "%s"`, ctx.PackageEventAlias, packageEventPath, ctx.PackageIfaceAlias, packageIfacePath)
+	"fmt"`)
+
+		fmt.Fprintf(importCode, `
+	%s "%s"`, ctx.PackageEventAlias, packageEventPath)
+
+		fmt.Fprintf(importCode, `
+	%s "%s"`, ctx.PackageIfaceAlias, packageIfacePath)
 
 		for _, imp := range ctx.FileAst.Imports {
 			begin := ctx.FileSet.Position(imp.Pos())
