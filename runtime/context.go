@@ -57,8 +57,8 @@ type Context interface {
 	ActivateEvent(event event.IEventCtrl, recursion event.EventRecursion)
 	// ManagedHooks 托管hook，在运行时停止时自动解绑定
 	ManagedHooks(hooks ...event.Hook)
-	// AutoManagedPoolObject 自动判断托管对象池
-	AutoManagedPoolObject() pool.ManagedPoolObject
+	// AutoUsePoolObject 自动判断使用托管对象池
+	AutoUsePoolObject() pool.ManagedPoolObject
 }
 
 type iContext interface {
@@ -110,7 +110,7 @@ func (ctx *ContextBehavior) ActivateEvent(event event.IEventCtrl, recursion even
 	if event == nil {
 		panic(fmt.Errorf("%w: %w: event is nil", ErrContext, exception.ErrArgs))
 	}
-	event.Init(ctx.GetAutoRecover(), ctx.GetReportError(), recursion, ctx.AutoManagedPoolObject())
+	event.Init(ctx.GetAutoRecover(), ctx.GetReportError(), recursion, ctx.AutoUsePoolObject())
 }
 
 // GetCurrentContext 获取当前上下文

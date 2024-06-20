@@ -13,8 +13,8 @@ func (ctx *ContextBehavior) ManagedPoolObject(po pool.PoolObject) {
 	ctx.managedPoolObjects = append(ctx.managedPoolObjects, po)
 }
 
-// AutoManagedPoolObject 自动判断托管对象池
-func (ctx *ContextBehavior) AutoManagedPoolObject() pool.ManagedPoolObject {
+// AutoUsePoolObject 自动判断使用托管对象池
+func (ctx *ContextBehavior) AutoUsePoolObject() pool.ManagedPoolObject {
 	if !ctx.opts.UseObjectPool {
 		return nil
 	}
