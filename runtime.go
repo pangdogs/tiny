@@ -99,11 +99,11 @@ func (rt *RuntimeBehavior) init(ctx runtime.Context, opts RuntimeOptions) {
 		rt.ctrlChan = make(chan _Ctrl)
 	}
 
-	rt.eventUpdate.Init(ctx.GetAutoRecover(), ctx.GetReportError(), event.EventRecursion_Disallow, ctx.AutoUsePoolObject())
-	rt.eventLateUpdate.Init(ctx.GetAutoRecover(), ctx.GetReportError(), event.EventRecursion_Disallow, ctx.AutoUsePoolObject())
-
 	runtime.UnsafeContext(ctx).SetFrame(rt.opts.Frame)
 	runtime.UnsafeContext(ctx).SetCallee(rt.opts.CompositeFace.Iface)
+
+	ctx.ActivateEvent(&rt.eventUpdate, event.EventRecursion_Disallow)
+	ctx.ActivateEvent(&rt.eventLateUpdate, event.EventRecursion_Disallow)
 
 	rt.changeRunningState(runtime.RunningState_Birth)
 

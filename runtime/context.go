@@ -57,8 +57,8 @@ type Context interface {
 	ActivateEvent(event event.IEventCtrl, recursion event.EventRecursion)
 	// ManagedHooks 托管hook，在运行时停止时自动解绑定
 	ManagedHooks(hooks ...event.Hook)
-	// AutoUsePoolObject 自动判断使用托管对象池
-	AutoUsePoolObject() pool.ManagedPoolObject
+	// AutoUsePool 自动判断使用托管对象池
+	AutoUsePool() pool.ManagedPoolObject
 }
 
 type iContext interface {
@@ -110,7 +110,7 @@ func (ctx *ContextBehavior) ActivateEvent(event event.IEventCtrl, recursion even
 	if event == nil {
 		panic(fmt.Errorf("%w: %w: event is nil", ErrContext, exception.ErrArgs))
 	}
-	event.Init(ctx.GetAutoRecover(), ctx.GetReportError(), recursion, ctx.AutoUsePoolObject())
+	event.Init(ctx.GetAutoRecover(), ctx.GetReportError(), recursion, ctx.AutoUsePool())
 }
 
 // GetCurrentContext 获取当前上下文
@@ -148,8 +148,8 @@ func (ctx *ContextBehavior) init(opts ContextOptions) {
 		ctx.opts.Context = context.Background()
 	}
 
-	if ctx.opts.UseObjectPool {
-		ctx.managedPoolObjects = make([]pool.PoolObject, 0, ctx.opts.UseObjectPoolSize)
+	if ctx.opts.UsePool {
+		ctx.managedPoolObjects = make([]pool.PoolObject, 0, ctx.opts.UsePoolSize)
 	}
 
 	gctx.UnsafeContext(&ctx.ContextBehavior).Init(ctx.opts.Context, ctx.opts.AutoRecover, ctx.opts.ReportError)

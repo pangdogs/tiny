@@ -14,14 +14,14 @@ type (
 
 // ContextOptions 创建运行时上下文的所有选项
 type ContextOptions struct {
-	CompositeFace     iface.Face[Context] // 扩展者，在扩展运行时上下文自身能力时使用
-	Context           context.Context     // 父Context
-	AutoRecover       bool                // 是否开启panic时自动恢复
-	ReportError       chan error          // panic时错误写入的error channel
-	PluginBundle      plugin.PluginBundle // 插件包
-	UseObjectPool     bool                // 使用对象池
-	UseObjectPoolSize int                 // 托管对象池初始大小
-	RunningHandler    RunningHandler      // 运行状态变化处理器
+	CompositeFace  iface.Face[Context] // 扩展者，在扩展运行时上下文自身能力时使用
+	Context        context.Context     // 父Context
+	AutoRecover    bool                // 是否开启panic时自动恢复
+	ReportError    chan error          // panic时错误写入的error channel
+	PluginBundle   plugin.PluginBundle // 插件包
+	UsePool        bool                // 使用托管对象池
+	UsePoolSize    int                 // 托管对象池初始大小
+	RunningHandler RunningHandler      // 运行状态变化处理器
 }
 
 type _ContextOption struct{}
@@ -33,7 +33,7 @@ func (_ContextOption) Default() option.Setting[ContextOptions] {
 		With.Context.Context(nil)(o)
 		With.Context.PanicHandling(false, nil)(o)
 		With.Context.PluginBundle(plugin.NewPluginBundle())(o)
-		With.Context.UseObjectPool(false, 0)(o)
+		With.Context.UsePool(false, 0)(o)
 		With.Context.RunningHandler(nil)(o)
 	}
 }
@@ -67,11 +67,11 @@ func (_ContextOption) PluginBundle(bundle plugin.PluginBundle) option.Setting[Co
 	}
 }
 
-// UseObjectPool 使用对象池
-func (_ContextOption) UseObjectPool(b bool, size int) option.Setting[ContextOptions] {
+// UsePool 使用托管对象池
+func (_ContextOption) UsePool(b bool, size int) option.Setting[ContextOptions] {
 	return func(o *ContextOptions) {
-		o.UseObjectPool = b
-		o.UseObjectPoolSize = size
+		o.UsePool = b
+		o.UsePoolSize = size
 	}
 }
 

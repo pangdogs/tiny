@@ -7,22 +7,22 @@ import (
 
 // ManagedPoolObject 托管对象池，在运行时停止时自动解释放
 func (ctx *ContextBehavior) ManagedPoolObject(po pool.PoolObject) {
-	if !ctx.opts.UseObjectPool {
+	if !ctx.opts.UsePool {
 		panic(fmt.Errorf("%w: not use object pool", ErrContext))
 	}
 	ctx.managedPoolObjects = append(ctx.managedPoolObjects, po)
 }
 
-// AutoUsePoolObject 自动判断使用托管对象池
-func (ctx *ContextBehavior) AutoUsePoolObject() pool.ManagedPoolObject {
-	if !ctx.opts.UseObjectPool {
+// AutoUsePool 自动判断使用托管对象池
+func (ctx *ContextBehavior) AutoUsePool() pool.ManagedPoolObject {
+	if !ctx.opts.UsePool {
 		return nil
 	}
 	return ctx.opts.CompositeFace.Iface
 }
 
 func (ctx *ContextBehavior) cleanManagedPoolObjects() {
-	if !ctx.opts.UseObjectPool {
+	if !ctx.opts.UsePool {
 		return
 	}
 
