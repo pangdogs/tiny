@@ -1,4 +1,4 @@
-//go:generate go run git.golaxy.org/tiny/event/eventcode gen_event --default_export=false --default_auto=false
+//go:generate go run git.golaxy.org/tiny/event/eventc event --default_export=false --default_auto=false
 package tiny
 
 type eventUpdate interface {

@@ -1,14 +1,16 @@
-//go:generate go run git.golaxy.org/tiny/event/eventcode gen_event
+//go:generate go run git.golaxy.org/tiny/event/eventc event
 package runtime
 
 import "git.golaxy.org/tiny/ec"
 
-// EventEntityTreeAddNode [EmitUnExport] 事件：新增实体树节点
+// EventEntityTreeAddNode 事件：新增实体树节点
+// +event-gen:export=0
 type EventEntityTreeAddNode interface {
 	OnEntityTreeAddNode(entityTree EntityTree, parent, child ec.Entity)
 }
 
-// EventEntityTreeRemoveNode [EmitUnExport] 事件：删除实体树节点
+// EventEntityTreeRemoveNode 事件：删除实体树节点
+// +event-gen:export=0
 type EventEntityTreeRemoveNode interface {
 	OnEntityTreeRemoveNode(entityTree EntityTree, parent, child ec.Entity)
 }
