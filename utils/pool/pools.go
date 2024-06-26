@@ -26,6 +26,20 @@ func Put[T any](name string, obj *T) {
 	pools[name].Put(obj)
 }
 
+func Range(fun generic.Func2[string, *Pool, bool]) {
+	for name, pool := range pools {
+		if !fun.Exec(name, pool) {
+			return
+		}
+	}
+}
+
+func Each(fun generic.Action2[string, *Pool]) {
+	for name, pool := range pools {
+		fun.Exec(name, pool)
+	}
+}
+
 type Info struct {
 	Name       string `json:"name"`
 	TotalAlloc int64  `json:"total_alloc"`
