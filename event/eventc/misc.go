@@ -16,6 +16,7 @@ import (
 const (
 	packageEventPath = "git.golaxy.org/tiny/event"
 	packageIfacePath = "git.golaxy.org/tiny/utils/iface"
+	packagePoolPath  = "git.golaxy.org/tiny/utils/pool"
 )
 
 func loadDeclFile() {

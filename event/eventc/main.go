@@ -51,6 +51,12 @@ func main() {
 					panic("[--package_iface_alias]值不能为空")
 				}
 			}
+			{
+				packagePoolAlias := viper.GetString("package_pool_alias")
+				if packagePoolAlias == "" {
+					panic("[--package_pool_alias]值不能为空")
+				}
+			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
@@ -65,6 +71,7 @@ func main() {
 	rootCmd.PersistentFlags().String("event_regexp", "^[eE]vent.+", "匹配事件定义时，使用的正则表达式。")
 	rootCmd.PersistentFlags().String("package_event_alias", "event", fmt.Sprintf("导入Golaxy框架的（%s）包时使用的别名。", packageEventPath))
 	rootCmd.PersistentFlags().String("package_iface_alias", "iface", fmt.Sprintf("导入Golaxy框架的（%s）包时使用的别名。", packageIfacePath))
+	rootCmd.PersistentFlags().String("package_pool_alias", "pool", fmt.Sprintf("导入Golaxy框架的（%s）包时使用的别名。", packagePoolPath))
 
 	// 生成事件代码相关选项
 	eventCmd := &cobra.Command{
