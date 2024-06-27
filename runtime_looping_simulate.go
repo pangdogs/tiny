@@ -8,6 +8,7 @@ func (rt *RuntimeBehavior) loopingSimulate() {
 	totalFrames := frame.GetTotalFrames()
 	gcFrames := int64(rt.opts.GCInterval.Seconds() * float64(frame.GetTargetFPS()))
 
+loop:
 	for rt.frameLoopBegin(); ; {
 		curFrames := frame.GetCurFrames()
 
@@ -17,7 +18,7 @@ func (rt *RuntimeBehavior) loopingSimulate() {
 
 		select {
 		case <-rt.ctx.Done():
-			break
+			break loop
 		default:
 		}
 
