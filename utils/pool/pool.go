@@ -30,8 +30,8 @@ func NewPool[T any]() *Pool {
 		&common_pool.ObjectPoolConfig{
 			LIFO:                     false,
 			MaxTotal:                 -1,
-			MaxIdle:                  0,
-			MinIdle:                  0,
+			MaxIdle:                  common_pool.DefaultMaxIdle,
+			MinIdle:                  common_pool.DefaultMinIdle,
 			TestOnCreate:             false,
 			TestOnBorrow:             false,
 			TestOnReturn:             false,
