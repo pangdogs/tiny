@@ -20,6 +20,12 @@ loop:
 			break loop
 		}
 
+		select {
+		case <-rt.ctx.Done():
+			break loop
+		default:
+		}
+
 		if curFrames%gcFrames == 0 {
 			rt.runGC()
 		}

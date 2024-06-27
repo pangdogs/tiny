@@ -15,6 +15,12 @@ func (rt *RuntimeBehavior) loopingSimulate() {
 			break
 		}
 
+		select {
+		case <-rt.ctx.Done():
+			break
+		default:
+		}
+
 		if curFrames%gcFrames == 0 {
 			rt.runGC()
 		}
