@@ -68,7 +68,7 @@ type iEntity interface {
 }
 
 var (
-	_ListElementFaceAnyPool = pool.Declare[generic.Element[iface.FaceAny]]()
+	_ListElementFaceAnyPool = pool.Declare[generic.Element[iface.FaceAny]](8192)
 )
 
 // EntityBehavior 实体行为，在需要扩展实体能力时，匿名嵌入至实体结构体中

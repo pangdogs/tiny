@@ -43,7 +43,7 @@ type EntityMgr interface {
 }
 
 var (
-	_ListElementFaceAnyPool = pool.Declare[generic.Element[iface.FaceAny]]()
+	_ListElementFaceAnyPool = pool.Declare[generic.Element[iface.FaceAny]](8192)
 )
 
 type _EntityEntry struct {
