@@ -5,7 +5,6 @@ go 1.21
 toolchain go1.22.1
 
 require (
-	github.com/jolestar/go-commons-pool/v2 v2.1.2
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8
