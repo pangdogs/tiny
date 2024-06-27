@@ -71,7 +71,7 @@ func (p *Pool) Put(obj any) {
 
 func (p *Pool) Get() any {
 	v, _ := p.pool.BorrowObject(context.Background())
-	atomic.AddInt64(&p.allocNum, 1)
+	atomic.AddInt64(&p.getNum, 1)
 	return v
 }
 
