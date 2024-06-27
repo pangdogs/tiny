@@ -10,12 +10,12 @@ import (
 
 // EntityOptions 创建实体的所有选项
 type EntityOptions struct {
-	CompositeFace      iface.Face[Entity]     // 扩展者，在扩展实体自身能力时使用
-	Prototype          string                 // 实体原型名称
-	PersistId          uid.Id                 // 实体持久化Id
-	AwakeOnFirstAccess bool                   // 开启组件被首次访问时，检测并调用Awake()
-	Meta               meta.Meta              // Meta信息
-	ManagedPoolObject  pool.ManagedPoolObject // 托管对象池
+	CompositeFace      iface.Face[Entity]      // 扩展者，在扩展实体自身能力时使用
+	Prototype          string                  // 实体原型名称
+	PersistId          uid.Id                  // 实体持久化Id
+	AwakeOnFirstAccess bool                    // 开启组件被首次访问时，检测并调用Awake()
+	Meta               meta.Meta               // Meta信息
+	ManagedPooledChunk pool.ManagedPooledChunk // 托管对象池
 }
 
 var With _Option
@@ -30,7 +30,7 @@ func (_Option) Default() option.Setting[EntityOptions] {
 		With.PersistId(uid.Nil)(o)
 		With.AwakeOnFirstAccess(true)(o)
 		With.Meta(nil)(o)
-		With.ManagedPoolObject(nil)(o)
+		With.ManagedPooledChunk(nil)(o)
 	}
 }
 
@@ -69,9 +69,9 @@ func (_Option) Meta(m meta.Meta) option.Setting[EntityOptions] {
 	}
 }
 
-// ManagedPoolObject 托管对象池
-func (_Option) ManagedPoolObject(managed pool.ManagedPoolObject) option.Setting[EntityOptions] {
+// ManagedPooledChunk 托管对象池
+func (_Option) ManagedPooledChunk(managed pool.ManagedPooledChunk) option.Setting[EntityOptions] {
 	return func(o *EntityOptions) {
-		o.ManagedPoolObject = managed
+		o.ManagedPooledChunk = managed
 	}
 }

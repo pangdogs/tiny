@@ -1,27 +1,35 @@
 package pool
 
-import "git.golaxy.org/tiny/utils/types"
+import (
+	"git.golaxy.org/tiny/utils/types"
+)
 
-type PoolObject struct {
-	Pool   *Pool
-	Object any
+type PooledChunk struct {
+	Pool  *Pool
+	Chunk IChunk
 }
 
-type ManagedPoolObject interface {
-	ManagedPoolObject(po PoolObject)
+type ManagedPooledChunk interface {
+	ManagedGet(poolId uint32) any
+	ManagedPooledChunk(pc PooledChunk)
 }
 
-func ManagedGet[T any](managed ManagedPoolObject, pool *Pool) *T {
+func ManagedGet[T any](managed ManagedPooledChunk, pool *Pool) *T {
 	if managed == nil {
 		return types.NewT[T]()
 	}
 
-	obj := pool.Get().(*T)
+	obj := managed.ManagedGet(pool.Id())
+	if obj == nil {
+		managed.ManagedPooledChunk(PooledChunk{
+			Pool:  pool,
+			Chunk: pool.Get(),
+		})
+		obj = managed.ManagedGet(pool.Id())
+		if obj == nil {
+			panic("managed get pooled object failed")
+		}
+	}
 
-	managed.ManagedPoolObject(PoolObject{
-		Pool:   pool,
-		Object: obj,
-	})
-
-	return obj
+	return obj.(*T)
 }

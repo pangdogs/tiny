@@ -89,7 +89,7 @@ type IEvent interface {
 // IEventCtrl 事件控制接口
 type IEventCtrl interface {
 	// Init 初始化事件
-	Init(autoRecover bool, reportError chan error, recursion EventRecursion, managed pool.ManagedPoolObject)
+	Init(autoRecover bool, reportError chan error, recursion EventRecursion, managed pool.ManagedPooledChunk)
 	// Open 打开事件
 	Open()
 	// Close 关闭事件
@@ -99,7 +99,7 @@ type IEventCtrl interface {
 }
 
 var (
-	_ListElementHookPool = pool.Declare[generic.Element[Hook]]()
+	_ListElementHookPool = pool.Declare[generic.Element[Hook]](8192)
 )
 
 // Event 事件
@@ -108,7 +108,7 @@ type Event struct {
 	autoRecover    bool
 	reportError    chan error
 	eventRecursion EventRecursion
-	managed        pool.ManagedPoolObject
+	managed        pool.ManagedPooledChunk
 	emitted        int32
 	emitDepth      int32
 	opened         bool
@@ -116,7 +116,7 @@ type Event struct {
 }
 
 // Init 初始化事件
-func (event *Event) Init(autoRecover bool, reportError chan error, eventRecursion EventRecursion, managed pool.ManagedPoolObject) {
+func (event *Event) Init(autoRecover bool, reportError chan error, eventRecursion EventRecursion, managed pool.ManagedPooledChunk) {
 	if event.inited {
 		panic(fmt.Errorf("%w: event is already initialized", ErrEvent))
 	}
@@ -261,9 +261,6 @@ func (event *Event) removeSubscriber(subscriber any) {
 }
 
 func (event *Event) managedGetListElementHook(hook Hook) *generic.Element[Hook] {
-	if event.managed == nil {
-		return &generic.Element[Hook]{Value: hook}
-	}
 	obj := pool.ManagedGet[generic.Element[Hook]](event.managed, _ListElementHookPool)
 	obj.Value = hook
 	return obj

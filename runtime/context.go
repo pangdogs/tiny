@@ -8,6 +8,7 @@ import (
 	"git.golaxy.org/tiny/plugin"
 	"git.golaxy.org/tiny/utils/async"
 	"git.golaxy.org/tiny/utils/exception"
+	"git.golaxy.org/tiny/utils/generic"
 	"git.golaxy.org/tiny/utils/iface"
 	"git.golaxy.org/tiny/utils/option"
 	"git.golaxy.org/tiny/utils/pool"
@@ -42,7 +43,7 @@ type Context interface {
 	async.Caller
 	reinterpret.CompositeProvider
 	plugin.PluginProvider
-	pool.ManagedPoolObject
+	pool.ManagedPooledChunk
 	GCCollector
 
 	// GetReflected 获取反射值
@@ -58,7 +59,7 @@ type Context interface {
 	// ManagedHooks 托管hook，在运行时停止时自动解绑定
 	ManagedHooks(hooks ...event.Hook)
 	// AutoUsePool 自动判断使用托管对象池
-	AutoUsePool() pool.ManagedPoolObject
+	AutoUsePool() pool.ManagedPooledChunk
 }
 
 type iContext interface {
@@ -81,7 +82,8 @@ type ContextBehavior struct {
 	entityMgr          _EntityMgrBehavior
 	callee             async.Callee
 	managedHooks       []event.Hook
-	managedPoolObjects []pool.PoolObject
+	managedPooledUsed  generic.SliceMap[uint32, *pool.PooledChunk]
+	managedPooledChunk []pool.PooledChunk
 	gcList             []GC
 }
 
@@ -149,7 +151,7 @@ func (ctx *ContextBehavior) init(opts ContextOptions) {
 	}
 
 	if ctx.opts.UsePool {
-		ctx.managedPoolObjects = make([]pool.PoolObject, 0, ctx.opts.UsePoolSize)
+		ctx.managedPooledChunk = make([]pool.PooledChunk, 0, ctx.opts.UsePoolSize)
 	}
 
 	gctx.UnsafeContext(&ctx.ContextBehavior).Init(ctx.opts.Context, ctx.opts.AutoRecover, ctx.opts.ReportError)

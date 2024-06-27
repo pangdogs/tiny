@@ -6,7 +6,7 @@ import "git.golaxy.org/tiny/utils/pool"
 type CombineEventTab []IEventTab
 
 // Init 初始化事件
-func (c *CombineEventTab) Init(autoRecover bool, reportError chan error, recursion EventRecursion, managed pool.ManagedPoolObject) {
+func (c *CombineEventTab) Init(autoRecover bool, reportError chan error, recursion EventRecursion, managed pool.ManagedPooledChunk) {
 	for _, tab := range *c {
 		tab.Init(autoRecover, reportError, recursion, managed)
 	}

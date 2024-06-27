@@ -5,16 +5,27 @@ import (
 	"git.golaxy.org/tiny/utils/pool"
 )
 
-// ManagedPoolObject 托管对象池，在运行时停止时自动解释放
-func (ctx *ContextBehavior) ManagedPoolObject(po pool.PoolObject) {
+// ManagedGet 从托管对象池中获取对象
+func (ctx *ContextBehavior) ManagedGet(poolId uint32) any {
+	pc, ok := ctx.managedPooledUsed.Get(poolId)
+	if !ok {
+		return nil
+	}
+	return pc.Chunk.Get()
+}
+
+// ManagedPooledChunk 托管对象池，在运行时停止时自动解释放
+func (ctx *ContextBehavior) ManagedPooledChunk(pc pool.PooledChunk) {
 	if !ctx.opts.UsePool {
 		panic(fmt.Errorf("%w: not use object pool", ErrContext))
 	}
-	ctx.managedPoolObjects = append(ctx.managedPoolObjects, po)
+	idx := len(ctx.managedPooledChunk)
+	ctx.managedPooledChunk = append(ctx.managedPooledChunk, pc)
+	ctx.managedPooledUsed.Add(pc.Pool.Id(), &ctx.managedPooledChunk[idx])
 }
 
 // AutoUsePool 自动判断使用托管对象池
-func (ctx *ContextBehavior) AutoUsePool() pool.ManagedPoolObject {
+func (ctx *ContextBehavior) AutoUsePool() pool.ManagedPooledChunk {
 	if !ctx.opts.UsePool {
 		return nil
 	}
@@ -26,13 +37,13 @@ func (ctx *ContextBehavior) cleanManagedPoolObjects() {
 		return
 	}
 
-	managedPoolObjects := ctx.managedPoolObjects
-	ctx.managedPoolObjects = nil
+	managedPoolObjects := ctx.managedPooledChunk
+	ctx.managedPooledChunk = nil
 
 	go func() {
 		for i := range managedPoolObjects {
-			po := &managedPoolObjects[i]
-			po.Pool.Put(po.Object)
+			pc := &managedPoolObjects[i]
+			pc.Pool.Put(pc.Chunk)
 		}
 	}()
 }

@@ -157,14 +157,14 @@ func (entity *EntityBehavior) init(opts EntityOptions) {
 
 	entity.componentList.New = entity.managedGetListElementFaceAny
 
-	entity._eventEntityDestroySelf.Init(false, nil, event.EventRecursion_Discard, entity.opts.ManagedPoolObject)
-	entity.eventComponentMgrAddComponents.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPoolObject)
-	entity.eventComponentMgrRemoveComponent.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPoolObject)
-	entity.eventComponentMgrFirstAccessComponent.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPoolObject)
-	entity.eventTreeNodeAddChild.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPoolObject)
-	entity.eventTreeNodeRemoveChild.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPoolObject)
-	entity.eventTreeNodeEnterParent.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPoolObject)
-	entity.eventTreeNodeLeaveParent.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPoolObject)
+	entity._eventEntityDestroySelf.Init(false, nil, event.EventRecursion_Discard, entity.opts.ManagedPooledChunk)
+	entity.eventComponentMgrAddComponents.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPooledChunk)
+	entity.eventComponentMgrRemoveComponent.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPooledChunk)
+	entity.eventComponentMgrFirstAccessComponent.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPooledChunk)
+	entity.eventTreeNodeAddChild.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPooledChunk)
+	entity.eventTreeNodeRemoveChild.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPooledChunk)
+	entity.eventTreeNodeEnterParent.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPooledChunk)
+	entity.eventTreeNodeLeaveParent.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPooledChunk)
 }
 
 func (entity *EntityBehavior) getOptions() *EntityOptions {
@@ -213,10 +213,10 @@ func (entity *EntityBehavior) eventEntityDestroySelf() event.IEvent {
 }
 
 func (entity *EntityBehavior) managedGetListElementFaceAny(face iface.FaceAny) *generic.Element[iface.FaceAny] {
-	if entity.opts.ManagedPoolObject == nil {
+	if entity.opts.ManagedPooledChunk == nil {
 		return &generic.Element[iface.FaceAny]{Value: face}
 	}
-	obj := pool.ManagedGet[generic.Element[iface.FaceAny]](entity.opts.ManagedPoolObject, _ListElementFaceAnyPool)
+	obj := pool.ManagedGet[generic.Element[iface.FaceAny]](entity.opts.ManagedPooledChunk, _ListElementFaceAnyPool)
 	obj.Value = face
 	return obj
 }
