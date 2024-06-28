@@ -372,10 +372,7 @@ func (mgr *_EntityMgrBehavior) fetchParent(entity ec.Entity, parentId uid.Id) (e
 }
 
 func (mgr *_EntityMgrBehavior) managedGetListElementFaceAny(face iface.FaceAny) *generic.Element[iface.FaceAny] {
-	if !mgr.ctx.getOptions().UsePool {
-		return &generic.Element[iface.FaceAny]{Value: face}
-	}
-	obj := pool.ManagedGet[generic.Element[iface.FaceAny]](mgr.ctx, _ListElementFaceAnyPool)
+	obj := pool.ManagedGet[generic.Element[iface.FaceAny]](mgr.ctx.AutoUsePool(), _ListElementFaceAnyPool)
 	obj.Value = face
 	return obj
 }

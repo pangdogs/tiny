@@ -213,9 +213,6 @@ func (entity *EntityBehavior) eventEntityDestroySelf() event.IEvent {
 }
 
 func (entity *EntityBehavior) managedGetListElementFaceAny(face iface.FaceAny) *generic.Element[iface.FaceAny] {
-	if entity.opts.ManagedPooledChunk == nil {
-		return &generic.Element[iface.FaceAny]{Value: face}
-	}
 	obj := pool.ManagedGet[generic.Element[iface.FaceAny]](entity.opts.ManagedPooledChunk, _ListElementFaceAnyPool)
 	obj.Value = face
 	return obj
