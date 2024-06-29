@@ -2,7 +2,7 @@ package ec
 
 import (
 	"git.golaxy.org/tiny/event"
-	"slices"
+	"golang.org/x/exp/slices"
 )
 
 // ManagedHooks 托管hook，在实体销毁时自动解绑定

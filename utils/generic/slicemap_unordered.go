@@ -2,7 +2,7 @@ package generic
 
 import (
 	"git.golaxy.org/tiny/utils/types"
-	"slices"
+	"golang.org/x/exp/slices"
 )
 
 func MakeUnorderedSliceMap[K comparable, V any](kvs ...UnorderedKV[K, V]) UnorderedSliceMap[K, V] {

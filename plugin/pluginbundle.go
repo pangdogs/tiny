@@ -6,8 +6,8 @@ import (
 	"git.golaxy.org/tiny/utils/generic"
 	"git.golaxy.org/tiny/utils/iface"
 	"git.golaxy.org/tiny/utils/types"
+	"golang.org/x/exp/slices"
 	"reflect"
-	"slices"
 )
 
 // PluginBundle 插件包

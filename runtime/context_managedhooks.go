@@ -2,7 +2,7 @@ package runtime
 
 import (
 	"git.golaxy.org/tiny/event"
-	"slices"
+	"golang.org/x/exp/slices"
 )
 
 // ManagedHooks 托管hook，在运行时停止时自动解绑定

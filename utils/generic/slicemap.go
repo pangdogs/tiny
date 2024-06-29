@@ -3,7 +3,7 @@ package generic
 import (
 	"cmp"
 	"git.golaxy.org/tiny/utils/types"
-	"slices"
+	"golang.org/x/exp/slices"
 )
 
 func MakeSliceMap[K cmp.Ordered, V any](kvs ...KV[K, V]) SliceMap[K, V] {

@@ -7,7 +7,7 @@ import (
 	"git.golaxy.org/tiny/utils/generic"
 	"git.golaxy.org/tiny/utils/iface"
 	"git.golaxy.org/tiny/utils/uid"
-	"slices"
+	"golang.org/x/exp/slices"
 )
 
 // iComponentMgr 组件管理器接口
