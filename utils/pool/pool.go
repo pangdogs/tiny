@@ -23,7 +23,7 @@ func NewPool[T any](chunkSize int64) *Pool {
 	}
 	pool.zero = func(chunk any) any {
 		c := chunk.(*Chunk[T])
-		clear(c.Objects)
+		clearSlice(c.Objects)
 		c.Pos = 0
 		return chunk
 	}
@@ -104,4 +104,11 @@ func makePoolId(rt reflect.Type) uint32 {
 	}
 	hash.Write([]byte(types.FullNameRT(rt)))
 	return hash.Sum32()
+}
+
+func clearSlice[S ~[]E, E any](s S) {
+	var zero E
+	for i := range s {
+		s[i] = zero
+	}
 }
