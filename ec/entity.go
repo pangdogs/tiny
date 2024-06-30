@@ -68,7 +68,7 @@ type iEntity interface {
 }
 
 var (
-	_ListElementFaceAnyPool = pool.Declare[generic.Element[iface.FaceAny]](8192)
+	_ListNodeFaceAnyPool = pool.Declare[generic.Node[iface.FaceAny]](8192)
 )
 
 // EntityBehavior 实体行为，在需要扩展实体能力时，匿名嵌入至实体结构体中
@@ -155,7 +155,7 @@ func (entity *EntityBehavior) init(opts EntityOptions) {
 		entity.opts.CompositeFace = iface.MakeFaceT[Entity](entity)
 	}
 
-	entity.componentList.New = entity.managedGetListElementFaceAny
+	entity.componentList.New = entity.managedGetListNodeFaceAny
 
 	entity._eventEntityDestroySelf.Init(false, nil, event.EventRecursion_Discard, entity.opts.ManagedPooledChunk)
 	entity.eventComponentMgrAddComponents.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPooledChunk)
@@ -212,8 +212,8 @@ func (entity *EntityBehavior) eventEntityDestroySelf() event.IEvent {
 	return &entity._eventEntityDestroySelf
 }
 
-func (entity *EntityBehavior) managedGetListElementFaceAny(face iface.FaceAny) *generic.Element[iface.FaceAny] {
-	obj := pool.ManagedGet[generic.Element[iface.FaceAny]](entity.opts.ManagedPooledChunk, _ListElementFaceAnyPool)
-	obj.Value = face
+func (entity *EntityBehavior) managedGetListNodeFaceAny(face iface.FaceAny) *generic.Node[iface.FaceAny] {
+	obj := pool.ManagedGet[generic.Node[iface.FaceAny]](entity.opts.ManagedPooledChunk, _ListNodeFaceAnyPool)
+	obj.V = face
 	return obj
 }

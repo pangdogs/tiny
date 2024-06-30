@@ -7,8 +7,8 @@ func NewList[T any]() *List[T] {
 
 // List 链表，可以在遍历时在任意位置添加或删除元素，递归添加或删除元素时仍然能正常工作，非线程安全。
 type List[T any] struct {
-	New  Func1[T, *Element[T]]
-	root Element[T]
+	New  Func1[T, *Node[T]]
+	root Node[T]
 	len  int
 	ver  int64
 }
@@ -24,7 +24,7 @@ func (l *List[T]) Version() int64 {
 }
 
 // Front 链表头部
-func (l *List[T]) Front() *Element[T] {
+func (l *List[T]) Front() *Node[T] {
 	if l.len <= 0 {
 		return nil
 	}
@@ -32,7 +32,7 @@ func (l *List[T]) Front() *Element[T] {
 }
 
 // Back 链表尾部
-func (l *List[T]) Back() *Element[T] {
+func (l *List[T]) Back() *Node[T] {
 	if l.len <= 0 {
 		return nil
 	}
@@ -40,27 +40,27 @@ func (l *List[T]) Back() *Element[T] {
 }
 
 // Remove 删除元素
-func (l *List[T]) Remove(e *Element[T]) T {
-	if e.list == l {
-		e.Escape()
+func (l *List[T]) Remove(n *Node[T]) T {
+	if n.list == l {
+		n.Escape()
 	}
-	return e.Value
+	return n.V
 }
 
 // PushFront 在链表头部插入数据
-func (l *List[T]) PushFront(value T) *Element[T] {
+func (l *List[T]) PushFront(value T) *Node[T] {
 	l.lazyInit()
 	return l.insertValue(value, &l.root)
 }
 
 // PushBack 在链表尾部插入数据
-func (l *List[T]) PushBack(value T) *Element[T] {
+func (l *List[T]) PushBack(value T) *Node[T] {
 	l.lazyInit()
 	return l.insertValue(value, l.root._prev)
 }
 
 // InsertBefore 在链表指定位置前插入数据
-func (l *List[T]) InsertBefore(value T, at *Element[T]) *Element[T] {
+func (l *List[T]) InsertBefore(value T, at *Node[T]) *Node[T] {
 	if !l.check(at) {
 		return nil
 	}
@@ -68,7 +68,7 @@ func (l *List[T]) InsertBefore(value T, at *Element[T]) *Element[T] {
 }
 
 // InsertAfter 在链表指定位置后插入数据
-func (l *List[T]) InsertAfter(value T, at *Element[T]) *Element[T] {
+func (l *List[T]) InsertAfter(value T, at *Node[T]) *Node[T] {
 	if !l.check(at) {
 		return nil
 	}
@@ -76,35 +76,35 @@ func (l *List[T]) InsertAfter(value T, at *Element[T]) *Element[T] {
 }
 
 // MoveToFront 移动元素至链表头部
-func (l *List[T]) MoveToFront(e *Element[T]) {
-	if !l.check(e) || l.root._next == e {
+func (l *List[T]) MoveToFront(n *Node[T]) {
+	if !l.check(n) || l.root._next == n {
 		return
 	}
-	l.move(e, &l.root)
+	l.move(n, &l.root)
 }
 
 // MoveToBack 移动元素至链表尾部
-func (l *List[T]) MoveToBack(e *Element[T]) {
-	if !l.check(e) || l.root._prev == e {
+func (l *List[T]) MoveToBack(n *Node[T]) {
+	if !l.check(n) || l.root._prev == n {
 		return
 	}
-	l.move(e, l.root._prev)
+	l.move(n, l.root._prev)
 }
 
 // MoveBefore 移动元素至链表指定位置前
-func (l *List[T]) MoveBefore(e, at *Element[T]) {
-	if !l.check(e) || !l.check(at) || e == at {
+func (l *List[T]) MoveBefore(n, at *Node[T]) {
+	if !l.check(n) || !l.check(at) || n == at {
 		return
 	}
-	l.move(e, at._prev)
+	l.move(n, at._prev)
 }
 
 // MoveAfter 移动元素至链表指定位置后
-func (l *List[T]) MoveAfter(e, at *Element[T]) {
-	if !l.check(e) || !l.check(at) || e == at {
+func (l *List[T]) MoveAfter(n, at *Node[T]) {
+	if !l.check(n) || !l.check(at) || n == at {
 		return
 	}
-	l.move(e, at)
+	l.move(n, at)
 }
 
 // PushFrontList 在链表头部插入其他链表，可以传入自身
@@ -113,8 +113,8 @@ func (l *List[T]) PushFrontList(other *List[T]) {
 		return
 	}
 	l.lazyInit()
-	for i, e := other.Len(), other.Back(); i > 0; i, e = i-1, e.Prev() {
-		l.insertValue(e.Value, &l.root)
+	for i, n := other.Len(), other.Back(); i > 0; i, n = i-1, n.Prev() {
+		l.insertValue(n.V, &l.root)
 	}
 }
 
@@ -124,58 +124,58 @@ func (l *List[T]) PushBackList(other *List[T]) {
 		return
 	}
 	l.lazyInit()
-	for i, e := other.Len(), other.Front(); i > 0; i, e = i-1, e.Next() {
-		l.insertValue(e.Value, l.root._prev)
+	for i, n := other.Len(), other.Front(); i > 0; i, n = i-1, n.Next() {
+		l.insertValue(n.V, l.root._prev)
 	}
 }
 
 // Traversal 遍历元素
-func (l *List[T]) Traversal(visitor func(e *Element[T]) bool) {
+func (l *List[T]) Traversal(visitor func(n *Node[T]) bool) {
 	if visitor == nil {
 		return
 	}
 
-	for e := l.Front(); e != nil; e = e.Next() {
-		if !visitor(e) {
+	for n := l.Front(); n != nil; n = n.Next() {
+		if !visitor(n) {
 			break
 		}
 	}
 }
 
 // TraversalAt 从指定位置开始遍历元素
-func (l *List[T]) TraversalAt(visitor func(e *Element[T]) bool, at *Element[T]) {
+func (l *List[T]) TraversalAt(visitor func(n *Node[T]) bool, at *Node[T]) {
 	if visitor == nil || !l.check(at) {
 		return
 	}
 
-	for e := at; e != nil; e = e.Next() {
-		if !visitor(e) {
+	for n := at; n != nil; n = n.Next() {
+		if !visitor(n) {
 			break
 		}
 	}
 }
 
 // ReversedTraversal 反向遍历元素
-func (l *List[T]) ReversedTraversal(visitor func(e *Element[T]) bool) {
+func (l *List[T]) ReversedTraversal(visitor func(n *Node[T]) bool) {
 	if visitor == nil {
 		return
 	}
 
-	for e := l.Back(); e != nil; e = e.Prev() {
-		if !visitor(e) {
+	for n := l.Back(); n != nil; n = n.Prev() {
+		if !visitor(n) {
 			break
 		}
 	}
 }
 
 // ReversedTraversalAt 从指定位置开始反向遍历元素
-func (l *List[T]) ReversedTraversalAt(visitor func(e *Element[T]) bool, at *Element[T]) {
+func (l *List[T]) ReversedTraversalAt(visitor func(n *Node[T]) bool, at *Node[T]) {
 	if visitor == nil || !l.check(at) {
 		return
 	}
 
-	for e := at; e != nil; e = e.Prev() {
-		if !visitor(e) {
+	for n := at; n != nil; n = n.Prev() {
+		if !visitor(n) {
 			break
 		}
 	}
@@ -189,58 +189,58 @@ func (l *List[T]) lazyInit() {
 	l.root._next = &l.root
 	l.root._prev = &l.root
 	if l.New == nil {
-		l.New = _NewElement[T]
+		l.New = newNode[T]
 	}
 }
 
 // insertValue 插入数据
-func (l *List[T]) insertValue(value T, at *Element[T]) *Element[T] {
+func (l *List[T]) insertValue(value T, at *Node[T]) *Node[T] {
 	l.lazyInit()
 	return l.insert(l.New(value), at)
 }
 
 // insert 插入元素
-func (l *List[T]) insert(e, at *Element[T]) *Element[T] {
-	e._prev = at
-	e._next = at._next
-	e._prev._next = e
-	e._next._prev = e
-	e.list = l
+func (l *List[T]) insert(n, at *Node[T]) *Node[T] {
+	n._prev = at
+	n._next = at._next
+	n._prev._next = n
+	n._next._prev = n
+	n.list = l
 	l.len++
 	l.ver++
-	e.ver = l.ver
-	return e
+	n.ver = l.ver
+	return n
 }
 
 // remove 删除元素
-func (l *List[T]) remove(e *Element[T]) {
+func (l *List[T]) remove(n *Node[T]) {
 	l.lazyInit()
-	e._prev._next = e._next
-	e._next._prev = e._prev
+	n._prev._next = n._next
+	n._next._prev = n._prev
 	l.len--
 	l.ver++
 }
 
 // move 移动元素
-func (l *List[T]) move(e, at *Element[T]) *Element[T] {
+func (l *List[T]) move(n, at *Node[T]) *Node[T] {
 	l.lazyInit()
 
-	if e == at {
-		return e
+	if n == at {
+		return n
 	}
-	e._prev._next = e._next
-	e._next._prev = e._prev
+	n._prev._next = n._next
+	n._next._prev = n._prev
 
-	e._prev = at
-	e._next = at._next
-	e._prev._next = e
-	e._next._prev = e
+	n._prev = at
+	n._next = at._next
+	n._prev._next = n
+	n._next._prev = n
 
 	l.ver++
 
-	return e
+	return n
 }
 
-func (l *List[T]) check(e *Element[T]) bool {
-	return e != nil && e.list == l && !e.escaped
+func (l *List[T]) check(n *Node[T]) bool {
+	return n != nil && n.list == l
 }
