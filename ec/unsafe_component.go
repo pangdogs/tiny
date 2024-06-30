@@ -37,19 +37,14 @@ func (uc _UnsafeComponent) SetReflected(v reflect.Value) {
 	uc.setReflected(v)
 }
 
-// GetComposite 获取扩展者
-func (uc _UnsafeComponent) GetComposite() Component {
-	return uc.getComposite()
-}
-
-// GetFixed 获取是否固定
-func (uc _UnsafeComponent) GetFixed() bool {
-	return uc.getFixed()
-}
-
 // SetFixed 设置是否固定
 func (uc _UnsafeComponent) SetFixed(fixed bool) {
 	uc.setFixed(fixed)
+}
+
+// GetComposite 获取扩展者
+func (uc _UnsafeComponent) GetComposite() Component {
+	return uc.getComposite()
 }
 
 // EventComponentDestroySelf 事件：组件销毁自身

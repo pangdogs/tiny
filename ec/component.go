@@ -25,6 +25,8 @@ type Component interface {
 	GetState() ComponentState
 	// GetReflected 获取反射值
 	GetReflected() reflect.Value
+	// GetFixed 是否固定
+	GetFixed() bool
 	// DestroySelf 销毁自身
 	DestroySelf()
 }
@@ -34,9 +36,8 @@ type iComponent interface {
 	setId(id uid.Id)
 	setState(state ComponentState)
 	setReflected(v reflect.Value)
-	getComposite() Component
-	getFixed() bool
 	setFixed(fixed bool)
+	getComposite() Component
 	eventComponentDestroySelf() event.IEvent
 	cleanManagedHooks()
 }
@@ -81,6 +82,11 @@ func (comp *ComponentBehavior) GetReflected() reflect.Value {
 	}
 	comp.reflected = reflect.ValueOf(comp.composite)
 	return comp.reflected
+}
+
+// GetFixed 是否固定
+func (comp *ComponentBehavior) GetFixed() bool {
+	return comp.fixed
 }
 
 // DestroySelf 销毁自身
@@ -136,10 +142,6 @@ func (comp *ComponentBehavior) setReflected(v reflect.Value) {
 
 func (comp *ComponentBehavior) getComposite() Component {
 	return comp.composite
-}
-
-func (comp *ComponentBehavior) getFixed() bool {
-	return comp.fixed
 }
 
 func (comp *ComponentBehavior) setFixed(fixed bool) {

@@ -286,7 +286,7 @@ func (rt *RuntimeBehavior) activateComponent(comp ec.Component) {
 		hooks[1] = event.Bind[LifecycleComponentLateUpdate](&rt.eventLateUpdate, compLateUpdate)
 		store = true
 	}
-	if !ec.UnsafeComponent(comp).GetFixed() {
+	if !comp.GetFixed() {
 		hooks[2] = ec.BindEventComponentDestroySelf(ec.UnsafeComponent(comp), rt)
 		store = true
 	}
