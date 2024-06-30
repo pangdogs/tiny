@@ -140,12 +140,12 @@ func (comp *ComponentBehavior) setReflected(v reflect.Value) {
 	comp.reflected = v
 }
 
-func (comp *ComponentBehavior) getComposite() Component {
-	return comp.composite
+func (comp *ComponentBehavior) setFixed(b bool) {
+	comp.fixed = b
 }
 
-func (comp *ComponentBehavior) setFixed(fixed bool) {
-	comp.fixed = fixed
+func (comp *ComponentBehavior) getComposite() Component {
+	return comp.composite
 }
 
 func (comp *ComponentBehavior) eventComponentDestroySelf() event.IEvent {

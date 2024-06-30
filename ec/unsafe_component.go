@@ -38,8 +38,8 @@ func (uc _UnsafeComponent) SetReflected(v reflect.Value) {
 }
 
 // SetFixed 设置是否固定
-func (uc _UnsafeComponent) SetFixed(fixed bool) {
-	uc.setFixed(fixed)
+func (uc _UnsafeComponent) SetFixed(b bool) {
+	uc.setFixed(b)
 }
 
 // GetComposite 获取扩展者
