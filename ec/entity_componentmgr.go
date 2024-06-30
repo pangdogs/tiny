@@ -174,7 +174,7 @@ func (entity *EntityBehavior) AddComponent(name string, components ...Component)
 
 // RemoveComponent 使用名称删除组件，将会删除同个名称指向的多个组件
 func (entity *EntityBehavior) RemoveComponent(name string) {
-	e, ok := entity.getComponentNode(name)
+	n, ok := entity.getComponentNode(name)
 	if !ok {
 		return
 	}
@@ -194,7 +194,7 @@ func (entity *EntityBehavior) RemoveComponent(name string) {
 
 		other.Escape()
 		return true
-	}, e)
+	}, n)
 }
 
 // RemoveComponentById 使用组件Id删除组件
@@ -236,19 +236,19 @@ func (entity *EntityBehavior) addComponent(name string, component Component) err
 
 	face := iface.MakeFaceAny(component)
 
-	if e, ok := entity.getComponentNode(name); ok {
+	if n, ok := entity.getComponentNode(name); ok {
 		entity.componentList.TraversalAt(func(other *generic.Node[iface.FaceAny]) bool {
 			if iface.Cache2Iface[Component](other.V.Cache).GetName() == name {
-				e = other
+				n = other
 				return true
 			}
 			return false
-		}, e)
+		}, n)
 
-		e = entity.componentList.InsertAfter(face, e)
+		n = entity.componentList.InsertAfter(face, n)
 
 	} else {
-		e = entity.componentList.PushBack(face)
+		n = entity.componentList.PushBack(face)
 	}
 
 	component.setState(ComponentState_Attach)
