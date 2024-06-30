@@ -35,6 +35,8 @@ type iComponent interface {
 	setState(state ComponentState)
 	setReflected(v reflect.Value)
 	getComposite() Component
+	getFixed() bool
+	setFixed(fixed bool)
 	eventComponentDestroySelf() event.IEvent
 	cleanManagedHooks()
 }
@@ -47,6 +49,7 @@ type ComponentBehavior struct {
 	composite                  Component
 	state                      ComponentState
 	reflected                  reflect.Value
+	fixed                      bool
 	_eventComponentDestroySelf event.Event
 	managedHooks               []event.Hook
 }
@@ -133,6 +136,14 @@ func (comp *ComponentBehavior) setReflected(v reflect.Value) {
 
 func (comp *ComponentBehavior) getComposite() Component {
 	return comp.composite
+}
+
+func (comp *ComponentBehavior) getFixed() bool {
+	return comp.fixed
+}
+
+func (comp *ComponentBehavior) setFixed(fixed bool) {
+	comp.fixed = fixed
 }
 
 func (comp *ComponentBehavior) eventComponentDestroySelf() event.IEvent {

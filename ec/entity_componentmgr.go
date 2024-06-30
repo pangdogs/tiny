@@ -32,6 +32,8 @@ type iComponentMgr interface {
 	CountComponents() int
 	// AddComponent 添加组件，因为同个名称可以指向多个组件，所以名称指向的组件已存在时，不会返回错误
 	AddComponent(name string, components ...Component) error
+	// AddFixedComponent 添加固定组件，因为同个名称可以指向多个组件，所以名称指向的组件已存在时，不会返回错误
+	AddFixedComponent(name string, components ...Component) error
 	// RemoveComponent 使用名称删除组件，将会删除同个名称指向的多个组件
 	RemoveComponent(name string)
 	// RemoveComponentById 使用组件Id删除组件
@@ -163,6 +165,36 @@ func (entity *EntityBehavior) AddComponent(name string, components ...Component)
 	}
 
 	for i := range components {
+		if err := entity.addComponent(name, components[i]); err != nil {
+			return err
+		}
+	}
+
+	_EmitEventComponentMgrAddComponents(entity, entity.opts.CompositeFace.Iface, components)
+	return nil
+}
+
+// AddFixedComponent 添加固定组件，因为同个名称可以指向多个组件，所以名称指向的组件已存在时，不会返回错误
+func (entity *EntityBehavior) AddFixedComponent(name string, components ...Component) error {
+	if len(components) <= 0 {
+		return fmt.Errorf("%w: %w: components is empty", ErrEC, exception.ErrArgs)
+	}
+
+	for i := range components {
+		comp := components[i]
+
+		if comp == nil {
+			return fmt.Errorf("%w: %w: component is nil", ErrEC, exception.ErrArgs)
+		}
+
+		if comp.GetState() != ComponentState_Birth {
+			return fmt.Errorf("%w: invalid component state %q", ErrEC, comp.GetState())
+		}
+	}
+
+	for i := range components {
+		components[i].setFixed(true)
+
 		if err := entity.addComponent(name, components[i]); err != nil {
 			return err
 		}
