@@ -8,7 +8,6 @@ import (
 	"git.golaxy.org/tiny/plugin"
 	"git.golaxy.org/tiny/utils/async"
 	"git.golaxy.org/tiny/utils/exception"
-	"git.golaxy.org/tiny/utils/generic"
 	"git.golaxy.org/tiny/utils/iface"
 	"git.golaxy.org/tiny/utils/option"
 	"git.golaxy.org/tiny/utils/pool"
@@ -82,7 +81,7 @@ type ContextBehavior struct {
 	entityMgr          _EntityMgrBehavior
 	callee             async.Callee
 	managedHooks       []event.Hook
-	managedPooledUsed  generic.SliceMap[uint32, *pool.PooledChunk]
+	managedPooledUsed  map[uint32]*pool.PooledChunk
 	managedPooledChunk []pool.PooledChunk
 	gcList             []GC
 }
@@ -152,6 +151,7 @@ func (ctx *ContextBehavior) init(opts ContextOptions) {
 
 	if ctx.opts.UsePool {
 		ctx.managedPooledChunk = make([]pool.PooledChunk, 0, ctx.opts.UsePoolSize)
+		ctx.managedPooledUsed = map[uint32]*pool.PooledChunk{}
 	}
 
 	gctx.UnsafeContext(&ctx.ContextBehavior).Init(ctx.opts.Context, ctx.opts.AutoRecover, ctx.opts.ReportError)
