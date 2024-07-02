@@ -5,6 +5,11 @@ import (
 	"strings"
 )
 
+// TypeFor 反射类型
+func TypeFor[T any]() reflect.Type {
+	return reflect.TypeOf((*T)(nil)).Elem()
+}
+
 // ZeroT 创建零值
 func ZeroT[T any]() T {
 	var zero T
@@ -38,7 +43,7 @@ func NameRT(t reflect.Type) string {
 
 // NameT 类型名
 func NameT[T any]() string {
-	return reflect.TypeFor[T]().Name()
+	return TypeFor[T]().Name()
 }
 
 // FullName 类型全名
@@ -57,7 +62,7 @@ func FullNameRT(t reflect.Type) string {
 
 // FullNameT 类型全名
 func FullNameT[T any]() string {
-	return FullNameRT(reflect.TypeFor[T]())
+	return FullNameRT(TypeFor[T]())
 }
 
 // WriteAnyFullName 写入类型全名
@@ -78,5 +83,5 @@ func WriteFullNameRT(sb *strings.Builder, t reflect.Type) {
 
 // WriteFullNameT 写入类型全名
 func WriteFullNameT[T any](sb *strings.Builder) {
-	WriteFullNameRT(sb, reflect.TypeFor[T]())
+	WriteFullNameRT(sb, TypeFor[T]())
 }

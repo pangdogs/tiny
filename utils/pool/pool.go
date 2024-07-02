@@ -10,7 +10,7 @@ import (
 
 func NewPool[T any](chunkSize int64) *Pool {
 	pool := &Pool{}
-	pool.reflectType = reflect.TypeFor[T]()
+	pool.reflectType = types.TypeFor[T]()
 	pool.name = types.FullNameRT(pool.reflectType)
 	pool.id = makePoolId(pool.reflectType)
 	pool.chunkSize = chunkSize

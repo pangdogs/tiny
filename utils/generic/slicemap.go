@@ -1,12 +1,12 @@
 package generic
 
 import (
-	"cmp"
 	"git.golaxy.org/tiny/utils/types"
+	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
 )
 
-func MakeSliceMap[K cmp.Ordered, V any](kvs ...KV[K, V]) SliceMap[K, V] {
+func MakeSliceMap[K constraints.Ordered, V any](kvs ...KV[K, V]) SliceMap[K, V] {
 	m := make(SliceMap[K, V], 0, len(kvs))
 	for i := range kvs {
 		kv := kvs[i]
@@ -15,7 +15,7 @@ func MakeSliceMap[K cmp.Ordered, V any](kvs ...KV[K, V]) SliceMap[K, V] {
 	return m
 }
 
-func NewSliceMap[K cmp.Ordered, V any](kvs ...KV[K, V]) *SliceMap[K, V] {
+func NewSliceMap[K constraints.Ordered, V any](kvs ...KV[K, V]) *SliceMap[K, V] {
 	m := make(SliceMap[K, V], 0, len(kvs))
 	for i := range kvs {
 		kv := kvs[i]
@@ -24,7 +24,7 @@ func NewSliceMap[K cmp.Ordered, V any](kvs ...KV[K, V]) *SliceMap[K, V] {
 	return &m
 }
 
-func MakeSliceMapFromGoMap[K cmp.Ordered, V any](m map[K]V) SliceMap[K, V] {
+func MakeSliceMapFromGoMap[K constraints.Ordered, V any](m map[K]V) SliceMap[K, V] {
 	sm := make(SliceMap[K, V], 0, len(m))
 	for k, v := range m {
 		sm.Add(k, v)
@@ -32,7 +32,7 @@ func MakeSliceMapFromGoMap[K cmp.Ordered, V any](m map[K]V) SliceMap[K, V] {
 	return sm
 }
 
-func NewSliceMapFromGoMap[K cmp.Ordered, V any](m map[K]V) *SliceMap[K, V] {
+func NewSliceMapFromGoMap[K constraints.Ordered, V any](m map[K]V) *SliceMap[K, V] {
 	sm := make(SliceMap[K, V], 0, len(m))
 	for k, v := range m {
 		sm.Add(k, v)
@@ -40,16 +40,16 @@ func NewSliceMapFromGoMap[K cmp.Ordered, V any](m map[K]V) *SliceMap[K, V] {
 	return &sm
 }
 
-type KV[K cmp.Ordered, V any] struct {
+type KV[K constraints.Ordered, V any] struct {
 	K K
 	V V
 }
 
-type SliceMap[K cmp.Ordered, V any] []KV[K, V]
+type SliceMap[K constraints.Ordered, V any] []KV[K, V]
 
 func (m *SliceMap[K, V]) Add(k K, v V) {
 	idx, ok := slices.BinarySearchFunc(*m, KV[K, V]{K: k}, func(a, b KV[K, V]) int {
-		return cmp.Compare(a.K, b.K)
+		return compare(a.K, b.K)
 	})
 	if ok {
 		(*m)[idx] = KV[K, V]{K: k, V: v}
@@ -60,7 +60,7 @@ func (m *SliceMap[K, V]) Add(k K, v V) {
 
 func (m *SliceMap[K, V]) TryAdd(k K, v V) bool {
 	idx, ok := slices.BinarySearchFunc(*m, KV[K, V]{K: k}, func(a, b KV[K, V]) int {
-		return cmp.Compare(a.K, b.K)
+		return compare(a.K, b.K)
 	})
 	if !ok {
 		*m = slices.Insert(*m, idx, KV[K, V]{K: k, V: v})
@@ -70,7 +70,7 @@ func (m *SliceMap[K, V]) TryAdd(k K, v V) bool {
 
 func (m *SliceMap[K, V]) Delete(k K) bool {
 	idx, ok := slices.BinarySearchFunc(*m, KV[K, V]{K: k}, func(a, b KV[K, V]) int {
-		return cmp.Compare(a.K, b.K)
+		return compare(a.K, b.K)
 	})
 	if ok {
 		*m = slices.Delete(*m, idx, idx+1)
@@ -80,7 +80,7 @@ func (m *SliceMap[K, V]) Delete(k K) bool {
 
 func (m SliceMap[K, V]) Get(k K) (V, bool) {
 	idx, ok := slices.BinarySearchFunc(m, KV[K, V]{K: k}, func(a, b KV[K, V]) int {
-		return cmp.Compare(a.K, b.K)
+		return compare(a.K, b.K)
 	})
 	if ok {
 		return m[idx].V, true
@@ -90,7 +90,7 @@ func (m SliceMap[K, V]) Get(k K) (V, bool) {
 
 func (m SliceMap[K, V]) Value(k K) V {
 	idx, ok := slices.BinarySearchFunc(m, KV[K, V]{K: k}, func(a, b KV[K, V]) int {
-		return cmp.Compare(a.K, b.K)
+		return compare(a.K, b.K)
 	})
 	if ok {
 		return m[idx].V
@@ -100,7 +100,7 @@ func (m SliceMap[K, V]) Value(k K) V {
 
 func (m SliceMap[K, V]) Exist(k K) bool {
 	_, ok := slices.BinarySearchFunc(m, KV[K, V]{K: k}, func(a, b KV[K, V]) int {
-		return cmp.Compare(a.K, b.K)
+		return compare(a.K, b.K)
 	})
 	return ok
 }
@@ -157,4 +157,23 @@ func (m SliceMap[K, V]) ToGoMap() map[K]V {
 		rv[kv.K] = kv.V
 	}
 	return rv
+}
+
+func compare[T constraints.Ordered](x, y T) int {
+	xNaN := isNaN(x)
+	yNaN := isNaN(y)
+	if xNaN && yNaN {
+		return 0
+	}
+	if xNaN || x < y {
+		return -1
+	}
+	if yNaN || x > y {
+		return +1
+	}
+	return 0
+}
+
+func isNaN[T constraints.Ordered](x T) bool {
+	return x != x
 }
