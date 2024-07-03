@@ -68,7 +68,7 @@ type iEntity interface {
 }
 
 var (
-	_ListNodeCompPool = pool.Declare[generic.Node[Component]](8192)
+	_ListNodeCompPool = pool.Declare[generic.Node[Component]](512)
 )
 
 // EntityBehavior 实体行为，在需要扩展实体能力时，匿名嵌入至实体结构体中

@@ -99,7 +99,7 @@ type IEventCtrl interface {
 }
 
 var (
-	_ListNodeHookPool = pool.Declare[generic.Node[Hook]](8192)
+	_ListNodeHookPool = pool.Declare[generic.Node[Hook]](1024)
 )
 
 // Event 事件
