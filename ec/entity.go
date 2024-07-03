@@ -75,7 +75,7 @@ var (
 type EntityBehavior struct {
 	opts                                  EntityOptions
 	context                               iface.Cache
-	fixedComponentList                    generic.SliceMap[string, Component]
+	fixedComponentList                    generic.UnorderedSliceMap[string, Component]
 	mutableComponentList                  generic.List[Component]
 	state                                 EntityState
 	reflected                             reflect.Value
