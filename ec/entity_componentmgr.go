@@ -5,7 +5,6 @@ import (
 	"git.golaxy.org/tiny/event"
 	"git.golaxy.org/tiny/utils/exception"
 	"git.golaxy.org/tiny/utils/generic"
-	"git.golaxy.org/tiny/utils/iface"
 	"git.golaxy.org/tiny/utils/uid"
 	"golang.org/x/exp/slices"
 )
@@ -30,11 +29,11 @@ type iComponentMgr interface {
 	GetComponents() []Component
 	// CountComponents 统计所有组件数量
 	CountComponents() int
-	// AddComponent 添加组件，因为同个名称可以指向多个组件，所以名称指向的组件已存在时，不会返回错误
+	// AddComponent 添加组件，允许组件同名
 	AddComponent(name string, components ...Component) error
-	// AddFixedComponent 添加固定组件，因为同个名称可以指向多个组件，所以名称指向的组件已存在时，不会返回错误
+	// AddFixedComponent 添加固定组件，不允许组件同名
 	AddFixedComponent(name string, components ...Component) error
-	// RemoveComponent 使用名称删除组件，将会删除同个名称指向的多个组件
+	// RemoveComponent 使用名称删除组件，同名组件均会删除
 	RemoveComponent(name string)
 	// RemoveComponentById 使用组件Id删除组件
 	RemoveComponentById(id uid.Id)
@@ -46,36 +45,69 @@ type iComponentMgr interface {
 
 // GetComponent 使用名称查询组件，同个名称指向多个组件时，返回首个组件
 func (entity *EntityBehavior) GetComponent(name string) Component {
-	if n, ok := entity.getComponentNode(name); ok {
-		return entity.accessComponent(iface.Cache2Iface[Component](n.V.Cache))
+	comp, ok := entity.getFixedComponentNode(name)
+	if ok {
+		return entity.accessComponent(comp)
+	}
+	node, ok := entity.getMutableComponentNode(name)
+	if ok {
+		return entity.accessComponent(node.V)
 	}
 	return nil
 }
 
 // GetComponentById 使用组件Id查询组件
 func (entity *EntityBehavior) GetComponentById(id uid.Id) Component {
-	if n, ok := entity.getComponentNodeById(id); ok {
-		return entity.accessComponent(iface.Cache2Iface[Component](n.V.Cache))
+	comp, ok := entity.getFixedComponentNodeById(id)
+	if ok {
+		return entity.accessComponent(comp)
+	}
+	node, ok := entity.getMutableComponentNodeById(id)
+	if ok {
+		return entity.accessComponent(node.V)
 	}
 	return nil
 }
 
 // ContainsComponent 组件是否存在
 func (entity *EntityBehavior) ContainsComponent(name string) bool {
-	_, ok := entity.getComponentNode(name)
+	_, ok := entity.getFixedComponentNode(name)
+	if ok {
+		return true
+	}
+	_, ok = entity.getMutableComponentNode(name)
 	return ok
 }
 
 // ContainsComponentById 使用组件Id检测组件是否存在
 func (entity *EntityBehavior) ContainsComponentById(id uid.Id) bool {
-	_, ok := entity.getComponentNodeById(id)
+	_, ok := entity.getMutableComponentNodeById(id)
+	if ok {
+		return true
+	}
+	_, ok = entity.getMutableComponentNodeById(id)
 	return ok
 }
 
 // RangeComponents 遍历所有组件
 func (entity *EntityBehavior) RangeComponents(fun generic.Func1[Component, bool]) {
-	entity.componentList.Traversal(func(n *generic.Node[iface.FaceAny]) bool {
-		comp := entity.accessComponent(iface.Cache2Iface[Component](n.V.Cache))
+	_continue := true
+
+	entity.fixedComponentList.Range(func(_ string, comp Component) bool {
+		comp = entity.accessComponent(comp)
+		if comp == nil {
+			return true
+		}
+		_continue = fun.Exec(comp)
+		return _continue
+	})
+
+	if !_continue {
+		return
+	}
+
+	entity.mutableComponentList.Traversal(func(node *generic.Node[Component]) bool {
+		comp := entity.accessComponent(node.V)
 		if comp == nil {
 			return true
 		}
@@ -85,8 +117,23 @@ func (entity *EntityBehavior) RangeComponents(fun generic.Func1[Component, bool]
 
 // ReversedRangeComponents 反向遍历所有组件
 func (entity *EntityBehavior) ReversedRangeComponents(fun generic.Func1[Component, bool]) {
-	entity.componentList.ReversedTraversal(func(n *generic.Node[iface.FaceAny]) bool {
-		comp := entity.accessComponent(iface.Cache2Iface[Component](n.V.Cache))
+	_continue := true
+
+	entity.mutableComponentList.ReversedTraversal(func(node *generic.Node[Component]) bool {
+		comp := entity.accessComponent(node.V)
+		if comp == nil {
+			return true
+		}
+		_continue = fun.Exec(comp)
+		return _continue
+	})
+
+	if !_continue {
+		return
+	}
+
+	entity.fixedComponentList.ReversedRange(func(_ string, comp Component) bool {
+		comp = entity.accessComponent(comp)
 		if comp == nil {
 			return true
 		}
@@ -96,57 +143,67 @@ func (entity *EntityBehavior) ReversedRangeComponents(fun generic.Func1[Componen
 
 // FilterComponents 过滤并获取组件
 func (entity *EntityBehavior) FilterComponents(fun generic.Func1[Component, bool]) []Component {
-	var components []Component
+	var comps []Component
 
-	entity.componentList.Traversal(func(n *generic.Node[iface.FaceAny]) bool {
-		comp := iface.Cache2Iface[Component](n.V.Cache)
+	entity.fixedComponentList.Each(func(_ string, comp Component) {
 		if fun.Exec(comp) {
-			components = append(components, comp)
+			comps = append(comps, comp)
+		}
+	})
+
+	entity.mutableComponentList.Traversal(func(node *generic.Node[Component]) bool {
+		comp := node.V
+		if fun.Exec(comp) {
+			comps = append(comps, comp)
 		}
 		return true
 	})
 
-	for i := range components {
-		if entity.accessComponent(components[i]) == nil {
-			components[i] = nil
+	for i := range comps {
+		if entity.accessComponent(comps[i]) == nil {
+			comps[i] = nil
 		}
 	}
 
-	components = slices.DeleteFunc(components, func(comp Component) bool {
+	comps = slices.DeleteFunc(comps, func(comp Component) bool {
 		return comp == nil
 	})
 
-	return components
+	return comps
 }
 
 // GetComponents 获取所有组件
 func (entity *EntityBehavior) GetComponents() []Component {
-	components := make([]Component, 0, entity.componentList.Len())
+	comps := make([]Component, 0, entity.CountComponents())
 
-	entity.componentList.Traversal(func(n *generic.Node[iface.FaceAny]) bool {
-		components = append(components, iface.Cache2Iface[Component](n.V.Cache))
+	entity.fixedComponentList.Each(func(_ string, comp Component) {
+		comps = append(comps, comp)
+	})
+
+	entity.mutableComponentList.Traversal(func(node *generic.Node[Component]) bool {
+		comps = append(comps, node.V)
 		return true
 	})
 
-	for i := range components {
-		if entity.accessComponent(components[i]) == nil {
-			components[i] = nil
+	for i := range comps {
+		if entity.accessComponent(comps[i]) == nil {
+			comps[i] = nil
 		}
 	}
 
-	components = slices.DeleteFunc(components, func(comp Component) bool {
+	comps = slices.DeleteFunc(comps, func(comp Component) bool {
 		return comp == nil
 	})
 
-	return components
+	return comps
 }
 
 // CountComponents 统计所有组件数量
 func (entity *EntityBehavior) CountComponents() int {
-	return entity.componentList.Len()
+	return entity.fixedComponentList.Len() + entity.mutableComponentList.Len()
 }
 
-// AddComponent 添加组件，因为同个名称可以指向多个组件，所以名称指向的组件已存在时，不会返回错误
+// AddComponent 添加组件，允许组件同名
 func (entity *EntityBehavior) AddComponent(name string, components ...Component) error {
 	if len(components) <= 0 {
 		return fmt.Errorf("%w: %w: components is empty", ErrEC, exception.ErrArgs)
@@ -165,16 +222,14 @@ func (entity *EntityBehavior) AddComponent(name string, components ...Component)
 	}
 
 	for i := range components {
-		if err := entity.addComponent(name, components[i]); err != nil {
-			return err
-		}
+		entity.addMutableComponent(name, components[i])
 	}
 
 	_EmitEventComponentMgrAddComponents(entity, entity.opts.CompositeFace.Iface, components)
 	return nil
 }
 
-// AddFixedComponent 添加固定组件，因为同个名称可以指向多个组件，所以名称指向的组件已存在时，不会返回错误
+// AddFixedComponent 添加固定组件，不允许组件同名
 func (entity *EntityBehavior) AddFixedComponent(name string, components ...Component) error {
 	if len(components) <= 0 {
 		return fmt.Errorf("%w: %w: components is empty", ErrEC, exception.ErrArgs)
@@ -190,29 +245,30 @@ func (entity *EntityBehavior) AddFixedComponent(name string, components ...Compo
 		if comp.GetState() != ComponentState_Birth {
 			return fmt.Errorf("%w: invalid component state %q", ErrEC, comp.GetState())
 		}
+
+		if entity.fixedComponentList.Exist(comp.GetName()) {
+			return fmt.Errorf("%w: fixed component %q already exists", ErrEC, comp.GetState())
+		}
 	}
 
 	for i := range components {
-		components[i].setFixed(true)
-
-		if err := entity.addComponent(name, components[i]); err != nil {
-			return err
-		}
+		entity.addFixedComponent(name, components[i])
 	}
 
 	_EmitEventComponentMgrAddComponents(entity, entity.opts.CompositeFace.Iface, components)
 	return nil
 }
 
-// RemoveComponent 使用名称删除组件，将会删除同个名称指向的多个组件
+// RemoveComponent 使用名称删除组件，同名组件均会删除
 func (entity *EntityBehavior) RemoveComponent(name string) {
-	n, ok := entity.getComponentNode(name)
+	compNode, ok := entity.getMutableComponentNode(name)
 	if !ok {
 		return
 	}
 
-	entity.componentList.TraversalAt(func(other *generic.Node[iface.FaceAny]) bool {
-		comp := iface.Cache2Iface[Component](other.V.Cache)
+	entity.mutableComponentList.TraversalAt(func(node *generic.Node[Component]) bool {
+		comp := node.V
+
 		if comp.GetName() != name {
 			return false
 		}
@@ -228,19 +284,19 @@ func (entity *EntityBehavior) RemoveComponent(name string) {
 
 		_EmitEventComponentMgrRemoveComponent(entity, entity.opts.CompositeFace.Iface, comp)
 
-		other.Escape()
+		node.Escape()
 		return true
-	}, n)
+	}, compNode)
 }
 
 // RemoveComponentById 使用组件Id删除组件
 func (entity *EntityBehavior) RemoveComponentById(id uid.Id) {
-	n, ok := entity.getComponentNodeById(id)
+	compNode, ok := entity.getMutableComponentNodeById(id)
 	if !ok {
 		return
 	}
 
-	comp := iface.Cache2Iface[Component](n.V.Cache)
+	comp := compNode.V
 
 	if comp.GetFixed() {
 		return
@@ -253,7 +309,7 @@ func (entity *EntityBehavior) RemoveComponentById(id uid.Id) {
 
 	_EmitEventComponentMgrRemoveComponent(entity, entity.opts.CompositeFace.Iface, comp)
 
-	n.Escape()
+	compNode.Escape()
 }
 
 // EventComponentMgrAddComponents 事件：实体的组件管理器添加组件
@@ -271,57 +327,81 @@ func (entity *EntityBehavior) EventComponentMgrFirstAccessComponent() event.IEve
 	return &entity.eventComponentMgrFirstAccessComponent
 }
 
-func (entity *EntityBehavior) addComponent(name string, component Component) error {
-	component.init(name, entity.opts.CompositeFace.Iface, component)
+func (entity *EntityBehavior) addMutableComponent(name string, comp Component) {
+	comp.setFixed(false)
+	comp.init(name, entity.opts.CompositeFace.Iface, comp)
 
-	face := iface.MakeFaceAny(component)
-
-	if n, ok := entity.getComponentNode(name); ok {
-		entity.componentList.TraversalAt(func(other *generic.Node[iface.FaceAny]) bool {
-			if iface.Cache2Iface[Component](other.V.Cache).GetName() == name {
-				n = other
+	if at, ok := entity.getMutableComponentNode(name); ok {
+		entity.mutableComponentList.TraversalAt(func(node *generic.Node[Component]) bool {
+			if node.V.GetName() == name {
+				at = node
 				return true
 			}
 			return false
-		}, n)
+		}, at)
 
-		n = entity.componentList.InsertAfter(face, n)
+		entity.mutableComponentList.InsertAfter(comp, at)
 
 	} else {
-		n = entity.componentList.PushBack(face)
+		entity.mutableComponentList.PushBack(comp)
 	}
 
-	component.setState(ComponentState_Attach)
-
-	return nil
+	comp.setState(ComponentState_Attach)
 }
 
-func (entity *EntityBehavior) getComponentNode(name string) (*generic.Node[iface.FaceAny], bool) {
-	var n *generic.Node[iface.FaceAny]
+func (entity *EntityBehavior) getMutableComponentNode(name string) (*generic.Node[Component], bool) {
+	var compNode *generic.Node[Component]
 
-	entity.componentList.Traversal(func(other *generic.Node[iface.FaceAny]) bool {
-		if iface.Cache2Iface[Component](other.V.Cache).GetName() == name {
-			n = other
+	entity.mutableComponentList.Traversal(func(node *generic.Node[Component]) bool {
+		if node.V.GetName() == name {
+			compNode = node
 			return false
 		}
 		return true
 	})
 
-	return n, n != nil
+	return compNode, compNode != nil
 }
 
-func (entity *EntityBehavior) getComponentNodeById(id uid.Id) (*generic.Node[iface.FaceAny], bool) {
-	var n *generic.Node[iface.FaceAny]
+func (entity *EntityBehavior) getMutableComponentNodeById(id uid.Id) (*generic.Node[Component], bool) {
+	var compNode *generic.Node[Component]
 
-	entity.componentList.Traversal(func(other *generic.Node[iface.FaceAny]) bool {
-		if iface.Cache2Iface[Component](other.V.Cache).GetId() == id {
-			n = other
+	entity.mutableComponentList.Traversal(func(node *generic.Node[Component]) bool {
+		if node.V.GetId() == id {
+			compNode = node
 			return false
 		}
 		return true
 	})
 
-	return n, n != nil
+	return compNode, compNode != nil
+}
+
+func (entity *EntityBehavior) addFixedComponent(name string, comp Component) {
+	comp.setFixed(true)
+	comp.init(name, entity.opts.CompositeFace.Iface, comp)
+
+	if entity.fixedComponentList.TryAdd(name, comp) {
+		comp.setState(ComponentState_Attach)
+	}
+}
+
+func (entity *EntityBehavior) getFixedComponentNode(name string) (Component, bool) {
+	return entity.fixedComponentList.Get(name)
+}
+
+func (entity *EntityBehavior) getFixedComponentNodeById(id uid.Id) (Component, bool) {
+	var comp Component
+
+	entity.fixedComponentList.Range(func(_ string, v Component) bool {
+		if v.GetId() == id {
+			comp = v
+			return false
+		}
+		return true
+	})
+
+	return comp, comp != nil
 }
 
 func (entity *EntityBehavior) accessComponent(comp Component) Component {

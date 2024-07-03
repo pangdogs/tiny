@@ -68,14 +68,15 @@ type iEntity interface {
 }
 
 var (
-	_ListNodeFaceAnyPool = pool.Declare[generic.Node[iface.FaceAny]](8192)
+	_ListNodeCompPool = pool.Declare[generic.Node[Component]](256)
 )
 
 // EntityBehavior 实体行为，在需要扩展实体能力时，匿名嵌入至实体结构体中
 type EntityBehavior struct {
 	opts                                  EntityOptions
 	context                               iface.Cache
-	componentList                         generic.List[iface.FaceAny]
+	fixedComponentList                    generic.SliceMap[string, Component]
+	mutableComponentList                  generic.List[Component]
 	state                                 EntityState
 	reflected                             reflect.Value
 	treeNodeState                         TreeNodeState
@@ -155,7 +156,7 @@ func (entity *EntityBehavior) init(opts EntityOptions) {
 		entity.opts.CompositeFace = iface.MakeFaceT[Entity](entity)
 	}
 
-	entity.componentList.New = entity.managedGetListNodeFaceAny
+	entity.mutableComponentList.New = entity.managedGetListNodeComp
 
 	entity._eventEntityDestroySelf.Init(false, nil, event.EventRecursion_Discard, entity.opts.ManagedPooledChunk)
 	entity.eventComponentMgrAddComponents.Init(false, nil, event.EventRecursion_Allow, entity.opts.ManagedPooledChunk)
@@ -180,7 +181,7 @@ func (entity *EntityBehavior) setContext(ctx iface.Cache) {
 }
 
 func (entity *EntityBehavior) getVersion() int64 {
-	return entity.componentList.Version()
+	return entity.mutableComponentList.Version()
 }
 
 func (entity *EntityBehavior) setState(state EntityState) {
@@ -212,8 +213,8 @@ func (entity *EntityBehavior) eventEntityDestroySelf() event.IEvent {
 	return &entity._eventEntityDestroySelf
 }
 
-func (entity *EntityBehavior) managedGetListNodeFaceAny(face iface.FaceAny) *generic.Node[iface.FaceAny] {
-	obj := pool.ManagedGet[generic.Node[iface.FaceAny]](entity.opts.ManagedPooledChunk, _ListNodeFaceAnyPool)
-	obj.V = face
+func (entity *EntityBehavior) managedGetListNodeComp(comp Component) *generic.Node[Component] {
+	obj := pool.ManagedGet[generic.Node[Component]](entity.opts.ManagedPooledChunk, _ListNodeCompPool)
+	obj.V = comp
 	return obj
 }
