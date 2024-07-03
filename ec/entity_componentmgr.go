@@ -11,7 +11,7 @@ import (
 
 // iComponentMgr 组件管理器接口
 type iComponentMgr interface {
-	// GetComponent 使用名称查询组件，同个名称指向多个组件时，返回首个组件
+	使用名称查询组件，组件同名时，返回首个组件
 	GetComponent(name string) Component
 	// GetComponentById 使用组件Id查询组件
 	GetComponentById(id uid.Id) Component
@@ -43,7 +43,7 @@ type iComponentMgr interface {
 	iAutoEventComponentMgrFirstAccessComponent // 事件：实体的组件管理器首次访问组件
 }
 
-// GetComponent 使用名称查询组件，同个名称指向多个组件时，返回首个组件
+// GetComponent 使用名称查询组件，组件同名时，返回首个组件
 func (entity *EntityBehavior) GetComponent(name string) Component {
 	comp, ok := entity.getFixedComponentNode(name)
 	if ok {

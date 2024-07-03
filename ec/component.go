@@ -36,7 +36,7 @@ type iComponent interface {
 	setId(id uid.Id)
 	setState(state ComponentState)
 	setReflected(v reflect.Value)
-	setFixed(fixed bool)
+	setFixed(b bool)
 	getComposite() Component
 	eventComponentDestroySelf() event.IEvent
 	cleanManagedHooks()
