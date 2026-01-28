@@ -1,5 +1,5 @@
-git.golaxy.org/core v0.4.25-0.20260128063913-0a065480e5c8 h1:XiWwFgTSxNIaG2uvA7aDx/6VItAPjyuHEKIQlxe086M=
-git.golaxy.org/core v0.4.25-0.20260128063913-0a065480e5c8/go.mod h1:tz61yAuf8oyHDKXh/ZZYwV+N9tx8M782cHGEjD820No=
+git.golaxy.org/core v0.4.25-0.20260128095930-33699b267202 h1:sQmPY0qq9Kf6Hc+gwuv5GcinLlt4bbjyZfuzBdD/LqQ=
+git.golaxy.org/core v0.4.25-0.20260128095930-33699b267202/go.mod h1:tz61yAuf8oyHDKXh/ZZYwV+N9tx8M782cHGEjD820No=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/elliotchance/pie/v2 v2.9.1 h1:v7TdC6ZdNZJ1HACofpLXvGKHUk307AjY/bttwDPWKEQ=
