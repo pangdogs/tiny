@@ -35,13 +35,13 @@ type iComponentManager interface {
 
 	// GetComponent 使用名称查询组件，组件同名时，返回首个组件
 	GetComponent(name string) Component
-	// GetComponentById 使用组件Id查询组件（需要开启为实体组件分配唯一Id特性）
+	// GetComponentById 使用组件Id查询组件
 	GetComponentById(id uid.Id) Component
 	// GetComponentByPT 使用组件原型查询组件
 	GetComponentByPT(prototype string) Component
 	// ContainsComponent 组件是否存在
 	ContainsComponent(name string) bool
-	// ContainsComponentById 使用组件Id检测组件是否存在（需要开启为实体组件分配唯一Id特性）
+	// ContainsComponentById 使用组件Id检测组件是否存在
 	ContainsComponentById(id uid.Id) bool
 	// ContainsComponentByPT 使用组件原型查询组件
 	ContainsComponentByPT(prototype string) bool
@@ -63,7 +63,7 @@ type iComponentManager interface {
 	AddComponent(name string, components ...Component) error
 	// RemoveComponent 使用名称删除组件，同名组件均会删除
 	RemoveComponent(name string)
-	// RemoveComponentById 使用组件Id删除组件（需要开启为实体组件分配唯一Id特性）
+	// RemoveComponentById 使用组件Id删除组件
 	RemoveComponentById(id uid.Id)
 
 	IEntityComponentManagerEventTab
@@ -85,7 +85,7 @@ func (entity *EntityBehavior) GetComponent(name string) Component {
 	return nil
 }
 
-// GetComponentById 使用组件Id查询组件（需要开启为实体组件分配唯一Id特性）
+// GetComponentById 使用组件Id查询组件
 func (entity *EntityBehavior) GetComponentById(id uid.Id) Component {
 	if slot, ok := entity.getComponentSlotById(id); ok {
 		return entity.touchComponent(slot.V)
@@ -107,7 +107,7 @@ func (entity *EntityBehavior) ContainsComponent(name string) bool {
 	return ok
 }
 
-// ContainsComponentById 使用组件Id检测组件是否存在（需要开启为实体组件分配唯一Id特性）
+// ContainsComponentById 使用组件Id检测组件是否存在
 func (entity *EntityBehavior) ContainsComponentById(id uid.Id) bool {
 	_, ok := entity.getComponentSlotById(id)
 	return ok
@@ -260,7 +260,7 @@ func (entity *EntityBehavior) RemoveComponent(name string) {
 	}, at.Index())
 }
 
-// RemoveComponentById 使用组件Id删除组件（需要开启为实体组件分配唯一Id特性）
+// RemoveComponentById 使用组件Id删除组件
 func (entity *EntityBehavior) RemoveComponentById(id uid.Id) {
 	slot, ok := entity.getComponentSlotById(id)
 	if !ok {
