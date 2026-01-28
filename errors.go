@@ -2,6 +2,7 @@ package tiny
 
 import (
 	"fmt"
+
 	"git.golaxy.org/tiny/utils/exception"
 )
 
@@ -10,5 +11,4 @@ var (
 	ErrPanicked = exception.ErrPanicked              // panic错误
 	ErrArgs     = exception.ErrArgs                  // 参数错误
 	ErrRuntime  = fmt.Errorf("%w: runtime", ErrTiny) // 运行时错误
-	ErrService  = fmt.Errorf("%w: service", ErrTiny) // 服务错误
 )

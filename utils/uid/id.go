@@ -1,11 +1,32 @@
+/*
+ * This file is part of Golaxy Distributed Service Development Framework.
+ *
+ * Golaxy Distributed Service Development Framework is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 2.1 of the License, or
+ * (at your option) any later version.
+ *
+ * Golaxy Distributed Service Development Framework is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Golaxy Distributed Service Development Framework. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Copyright (c) 2024 pangdogs.
+ */
+
 package uid
 
 import "strconv"
 
-// Nil nil
-const Nil = Id(0)
+var (
+	// Nil is a nil id.
+	Nil Id = 0
+)
 
-// Id represents a global unique id.
+// Id represents a unique id.
 type Id int64
 
 // IsNil checks if an Id is nil.
@@ -15,5 +36,5 @@ func (id Id) IsNil() bool {
 
 // String implements fmt.Stringer
 func (id Id) String() string {
-	return strconv.Itoa(int(id))
+	return strconv.FormatInt(int64(id), 10)
 }

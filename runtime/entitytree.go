@@ -1,377 +1,568 @@
+/*
+ * This file is part of Golaxy Distributed Service Development Framework.
+ *
+ * Golaxy Distributed Service Development Framework is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 2.1 of the License, or
+ * (at your option) any later version.
+ *
+ * Golaxy Distributed Service Development Framework is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Golaxy Distributed Service Development Framework. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Copyright (c) 2024 pangdogs.
+ */
+
 package runtime
 
 import (
 	"fmt"
+
+	"git.golaxy.org/core/utils/corectx"
+	"git.golaxy.org/core/utils/generic"
 	"git.golaxy.org/tiny/ec"
-	"git.golaxy.org/tiny/event"
-	"git.golaxy.org/tiny/internal/gctx"
-	"git.golaxy.org/tiny/utils/exception"
-	"git.golaxy.org/tiny/utils/generic"
-	"git.golaxy.org/tiny/utils/iface"
 	"git.golaxy.org/tiny/utils/uid"
+)
+
+var (
+	// ForestNodeId 实体树森林节点ID
+	ForestNodeId = uid.Id(-1)
+	// forestNodeIdx 实体树森林节点索引
+	forestNodeIdx = -1
 )
 
 // EntityTree 实体树接口
 type EntityTree interface {
-	gctx.CurrentContextProvider
+	corectx.CurrentContextProvider
 
-	// AddNode 新增实体节点，会向实体管理器添加实体
-	AddNode(entity ec.Entity, parentId uid.Id) error
-	// PruningNode 实体树节点剪枝
-	PruningNode(entityId uid.Id)
-	// RangeChildren 遍历子实体
-	RangeChildren(entityId uid.Id, fun generic.Func1[ec.Entity, bool])
-	// ReversedRangeChildren 反向遍历子实体
-	ReversedRangeChildren(entityId uid.Id, fun generic.Func1[ec.Entity, bool])
-	// FilterChildren 过滤并获取子实体
-	FilterChildren(entityId uid.Id, fun generic.Func1[ec.Entity, bool]) []ec.Entity
-	// GetChildren 获取所有子实体
-	GetChildren(entityId uid.Id) []ec.Entity
-	// CountChildren 获取子实体数量
-	CountChildren(entityId uid.Id) int
-	// IsTop 是否是顶层节点
-	IsTop(entityId uid.Id) bool
-	// ChangeParent 修改父实体
-	ChangeParent(entityId, parentId uid.Id) error
+	// MakeRoot 创建根节点
+	MakeRoot(entityId uid.Id) error
+	// AddChild 新增子节点
+	AddChild(parentId, childId uid.Id) error
+	// RemoveNode 删除子节点，会后序遍历递归删除所有子节点
+	RemoveNode(childId uid.Id) error
+	// DetachNode 脱离父节点，成为根节点
+	DetachNode(childId uid.Id) error
+	// MoveNode 修改父节点
+	MoveNode(childId, parentId uid.Id) error
+	// IsFreedom 是否是自由节点
+	IsFreedom(entityId uid.Id) (bool, error)
+	// IsRoot 是否是根节点
+	IsRoot(entityId uid.Id) (bool, error)
+	// IsLeaf 是否是叶子节点
+	IsLeaf(entityId uid.Id) (bool, error)
 	// GetParent 获取父实体
-	GetParent(entityId uid.Id) (ec.Entity, bool)
+	GetParent(childId uid.Id) (ec.Entity, error)
+	// RangeChildren 遍历所有子节点
+	RangeChildren(parentId uid.Id, fun generic.Func1[ec.Entity, bool]) error
+	// EachChildren 遍历每个子节点
+	EachChildren(parentId uid.Id, fun generic.Action1[ec.Entity]) error
+	// ReversedRangeChildren 反向遍历所有子节点
+	ReversedRangeChildren(parentId uid.Id, fun generic.Func1[ec.Entity, bool]) error
+	// ReversedEachChildren 反向遍历每个子节点
+	ReversedEachChildren(parentId uid.Id, fun generic.Action1[ec.Entity]) error
+	// FilterChildren 过滤并获取子节点
+	FilterChildren(parentId uid.Id, fun generic.Func1[ec.Entity, bool]) ([]ec.Entity, error)
+	// ListChildren 获取所有子节点
+	ListChildren(parentId uid.Id) ([]ec.Entity, error)
+	// CountChildren 获取子节点数量
+	CountChildren(parentId uid.Id) (int, error)
 
-	iAutoEventEntityTreeAddNode    // 事件：新增实体树节点
-	iAutoEventEntityTreeRemoveNode // 事件：删除实体树节点
+	IEntityTreeEventTab
 }
 
-// AddNode 新增实体节点，会向实体管理器添加实体
-func (mgr *_EntityMgrBehavior) AddNode(entity ec.Entity, parentId uid.Id) error {
-	if parentId.IsNil() {
-		return fmt.Errorf("%w: %w: parentId is nil", ErrEntityMgr, exception.ErrArgs)
-	}
-	return mgr.addEntity(entity, parentId)
+// MakeRoot 创建根节点
+func (mgr *_EntityManagerBehavior) MakeRoot(entityId uid.Id) error {
+	return mgr.AddChild(ForestNodeId, entityId)
 }
 
-// PruningNode 实体树节点剪枝
-func (mgr *_EntityMgrBehavior) PruningNode(entityId uid.Id) {
-	entity, ok := mgr.GetEntity(entityId)
-	if !ok {
-		return
-	}
-
-	if entity.GetState() != ec.EntityState_Alive {
-		return
-	}
-
-	if entity.GetTreeNodeState() != ec.TreeNodeState_Attached {
-		return
-	}
-
-	ec.UnsafeEntity(entity).SetTreeNodeState(ec.TreeNodeState_Detaching)
-
-	mgr.detachParentNode(entity)
-	mgr.removeFromParentNode(entity)
-}
-
-// RangeChildren 遍历子实体
-func (mgr *_EntityMgrBehavior) RangeChildren(entityId uid.Id, fun generic.Func1[ec.Entity, bool]) {
-	node, ok := mgr.treeNodes[entityId]
-	if !ok || node.children == nil {
-		return
-	}
-
-	node.children.Traversal(func(n *generic.Node[iface.FaceAny]) bool {
-		return fun.Exec(iface.Cache2Iface[ec.Entity](n.V.Cache))
-	})
-}
-
-// ReversedRangeChildren 反向遍历子实体
-func (mgr *_EntityMgrBehavior) ReversedRangeChildren(entityId uid.Id, fun generic.Func1[ec.Entity, bool]) {
-	node, ok := mgr.treeNodes[entityId]
-	if !ok || node.children == nil {
-		return
-	}
-
-	node.children.ReversedTraversal(func(n *generic.Node[iface.FaceAny]) bool {
-		return fun.Exec(iface.Cache2Iface[ec.Entity](n.V.Cache))
-	})
-}
-
-// FilterChildren 过滤并获取子实体
-func (mgr *_EntityMgrBehavior) FilterChildren(entityId uid.Id, fun generic.Func1[ec.Entity, bool]) []ec.Entity {
-	node, ok := mgr.treeNodes[entityId]
-	if !ok || node.children == nil {
-		return nil
-	}
-
-	var entities []ec.Entity
-
-	node.children.Traversal(func(n *generic.Node[iface.FaceAny]) bool {
-		entity := iface.Cache2Iface[ec.Entity](n.V.Cache)
-
-		if fun.Exec(entity) {
-			entities = append(entities, entity)
+// AddChild 新增子节点
+func (mgr *_EntityManagerBehavior) AddChild(parentId, childId uid.Id) error {
+	parentSlotIdx, parentTreeNode := mgr.getTreeNode(parentId)
+	if parentSlotIdx < 0 {
+		if parentTreeNode == nil {
+			return fmt.Errorf("%w: parent entity %q not exists", ErrEntityTree, parentId)
+		}
+	} else {
+		if parentTreeNode == nil {
+			return fmt.Errorf("%w: parent entity %q not in the entity-tree", ErrEntityTree, parentId)
 		}
 
-		return true
-	})
+		parentEntity := mgr.entityList.Get(parentSlotIdx).V
 
-	return entities
-}
-
-// GetChildren 获取所有子实体
-func (mgr *_EntityMgrBehavior) GetChildren(entityId uid.Id) []ec.Entity {
-	node, ok := mgr.treeNodes[entityId]
-	if !ok || node.children == nil {
-		return nil
+		if parentEntity.GetState() < ec.EntityState_Awake || parentEntity.GetState() > ec.EntityState_Alive {
+			return fmt.Errorf("%w: parent entity %q is in an unexpected state %q", ErrEntityTree, parentId, parentEntity.GetState())
+		}
 	}
 
-	entities := make([]ec.Entity, 0, node.children.Len())
-
-	node.children.Traversal(func(n *generic.Node[iface.FaceAny]) bool {
-		entities = append(entities, iface.Cache2Iface[ec.Entity](n.V.Cache))
-		return true
-	})
-
-	return entities
-}
-
-// CountChildren 获取子实体数量
-func (mgr *_EntityMgrBehavior) CountChildren(entityId uid.Id) int {
-	node, ok := mgr.treeNodes[entityId]
-	if !ok || node.children == nil {
-		return 0
+	childSlotIdx, childTreeNode := mgr.getTreeNode(childId)
+	if childSlotIdx < 0 {
+		return fmt.Errorf("%w: child entity %q not exists", ErrEntityTree, childId)
 	}
-	return node.children.Len()
-}
-
-// IsTop 是否是顶层节点
-func (mgr *_EntityMgrBehavior) IsTop(entityId uid.Id) bool {
-	node, ok := mgr.treeNodes[entityId]
-	if !ok {
-		return false
-	}
-	return node.parentAt == nil
-}
-
-// ChangeParent 修改父实体
-func (mgr *_EntityMgrBehavior) ChangeParent(entityId, parentId uid.Id) error {
-	entity, ok := mgr.GetEntity(entityId)
-	if !ok {
-		return fmt.Errorf("%w: entity not exist", ErrEntityMgr)
+	if childTreeNode != nil {
+		return fmt.Errorf("%w: child entity %q already in the entity-tree", ErrEntityTree, childId)
 	}
 
-	if entity.GetState() > ec.EntityState_Alive {
-		return fmt.Errorf("%w: invalid entity state %q", ErrEntityMgr, entity.GetState())
+	childEntity := mgr.entityList.Get(childSlotIdx).V
+
+	if childEntity.GetState() < ec.EntityState_Awake || childEntity.GetState() > ec.EntityState_Alive {
+		return fmt.Errorf("%w: child entity %q is in an unexpected state %q", ErrEntityTree, childId, childEntity.GetState())
 	}
 
-	if parentId.IsNil() {
-		mgr.PruningNode(entityId)
-		return nil
+	if childEntity.GetTreeNodeState() != ec.TreeNodeState_Freedom {
+		return fmt.Errorf("%w: child entity %q is in an unexpected tree node state %q", ErrEntityTree, childId, childEntity.GetTreeNodeState())
 	}
 
-	parent, ok := mgr.GetEntity(parentId)
-	if !ok {
-		return fmt.Errorf("%w: parent not exist", ErrEntityMgr)
+	ec.UnsafeEntity(childEntity).SetTreeNodeState(ec.TreeNodeState_Attaching)
+
+	treeNode := &_TreeNode{parent: parentSlotIdx}
+	mgr.entityTreeNodes[childSlotIdx] = treeNode
+	attachedSlot := parentTreeNode.children.PushBack(childSlotIdx)
+	treeNode.attachedIndex = attachedSlot.Index()
+	treeNode.attachedVersion = attachedSlot.Version()
+
+	var parentEntity ec.Entity
+	if parentSlotIdx >= 0 {
+		parentEntity = mgr.entityList.Get(parentSlotIdx).V
 	}
 
-	if parent.GetState() > ec.EntityState_Alive {
-		return fmt.Errorf("%w: invalid parent state %q", ErrEntityMgr, parent.GetState())
-	}
+	{
+		caller := makeTreeNodeCaller(childEntity)
 
-	if parent.GetId() == entity.GetId() {
-		return fmt.Errorf("%w: parent and child cannot be the same", ErrEntityMgr)
-	}
+		if !caller.Call(func() {
+			_EmitEventEntityTreeAddNode(mgr, mgr, parentId, childId)
+		}) {
+			return nil
+		}
 
-	switch entity.GetTreeNodeState() {
-	case ec.TreeNodeState_Freedom:
-		mgr.addToParentNode(entity, parent)
-		mgr.attachParentNode(entity, parent)
-	case ec.TreeNodeState_Attached:
-		if p, ok := entity.GetTreeNodeParent(); ok {
-			if p.GetId() == parent.GetId() {
+		if parentEntity != nil {
+			if !caller.Call(func() {
+				ec.UnsafeEntity(parentEntity).EmitEventTreeNodeAddChild(childId)
+			}) {
 				return nil
 			}
 		}
 
-		for p, _ := parent.GetTreeNodeParent(); p != nil; p, _ = p.GetTreeNodeParent() {
-			if p.GetId() == entity.GetId() {
-				return fmt.Errorf("%w: detected a cycle in the tree structure", ErrEntityMgr)
-			}
+		if !caller.Call(func() {
+			ec.UnsafeEntity(childEntity).EmitEventTreeNodeAttachParent(parentId)
+		}) {
+			return nil
 		}
-
-		mgr.changeParentNode(entity, parent)
-	default:
-		return fmt.Errorf("%w: invalid entity tree node state %q", ErrEntityMgr, entity.GetTreeNodeState())
 	}
+
+	ec.UnsafeEntity(childEntity).SetTreeNodeState(ec.TreeNodeState_Attached)
 
 	return nil
 }
 
+// RemoveNode 删除子节点，会后序遍历递归删除所有子节点
+func (mgr *_EntityManagerBehavior) RemoveNode(childId uid.Id) error {
+	childSlotIdx, childTreeNode := mgr.getTreeNode(childId)
+	if childSlotIdx < 0 {
+		return fmt.Errorf("%w: child entity %q not exists", ErrEntityTree, childId)
+	}
+	if childTreeNode == nil {
+		return fmt.Errorf("%w: child entity %q not in the entity-tree", ErrEntityTree, childId)
+	}
+
+	childEntity := mgr.entityList.Get(childSlotIdx).V
+
+	if childEntity.GetState() < ec.EntityState_Awake || childEntity.GetState() > ec.EntityState_Alive {
+		return fmt.Errorf("%w: child entity %q is in an unexpected state %q", ErrEntityTree, childId, childEntity.GetState())
+	}
+
+	if childEntity.GetTreeNodeState() != ec.TreeNodeState_Attached {
+		return fmt.Errorf("%w: child entity %q has an unexpected tree node state %q", ErrEntityTree, childId, childEntity.GetTreeNodeState())
+	}
+
+	ec.UnsafeEntity(childEntity).SetTreeNodeState(ec.TreeNodeState_Detaching)
+
+	parentId := ForestNodeId
+	parentTreeNode := mgr.entityTreeNodes[forestNodeIdx]
+	var parentEntity ec.Entity
+	if childTreeNode.parent >= 0 {
+		parentTreeNode = mgr.entityTreeNodes[childTreeNode.parent]
+		parentEntity = mgr.entityList.Get(childTreeNode.parent).V
+		parentId = parentEntity.GetId()
+	}
+
+	{
+		caller := makeTreeNodeCaller(childEntity)
+
+		if !caller.Call(func() {
+			childTreeNode.children.ReversedTraversalEach(func(slot *generic.FreeSlot[int]) {
+				entity := mgr.entityList.Get(slot.V).V
+				mgr.RemoveNode(entity.GetId())
+			})
+		}) {
+			return nil
+		}
+
+		if !caller.Call(func() {
+			ec.UnsafeEntity(childEntity).EmitEventTreeNodeDetachParent(parentId)
+		}) {
+			return nil
+		}
+
+		if parentEntity != nil {
+			if !caller.Call(func() {
+				ec.UnsafeEntity(parentEntity).EmitEventTreeNodeRemoveChild(childId)
+			}) {
+				return nil
+			}
+		}
+
+		if !caller.Call(func() {
+			_EmitEventEntityTreeRemoveNode(mgr, mgr, parentId, childId)
+		}) {
+			return nil
+		}
+	}
+
+	delete(mgr.entityTreeNodes, childSlotIdx)
+	parentTreeNode.children.ReleaseIfVersion(childTreeNode.attachedIndex, childTreeNode.attachedVersion)
+
+	ec.UnsafeEntity(childEntity).SetTreeNodeState(ec.TreeNodeState_Freedom)
+
+	return nil
+}
+
+// DetachNode 脱离父节点，成为根节点
+func (mgr *_EntityManagerBehavior) DetachNode(childId uid.Id) error {
+	return mgr.MoveNode(childId, ForestNodeId)
+}
+
+// MoveNode 修改父节点
+func (mgr *_EntityManagerBehavior) MoveNode(childId, parentId uid.Id) error {
+	toParentSlotIdx, toParentTreeNode := mgr.getTreeNode(parentId)
+	if toParentSlotIdx < 0 {
+		if toParentTreeNode == nil {
+			return fmt.Errorf("%w: parent entity %q not exists", ErrEntityTree, parentId)
+		}
+	} else {
+		if toParentTreeNode == nil {
+			return fmt.Errorf("%w: parent entity %q not in the entity-tree", ErrEntityTree, parentId)
+		}
+
+		toParentEntity := mgr.entityList.Get(toParentSlotIdx).V
+
+		if toParentEntity.GetState() < ec.EntityState_Awake || toParentEntity.GetState() > ec.EntityState_Alive {
+			return fmt.Errorf("%w: parent entity %q is in an unexpected state %q", ErrEntityTree, parentId, toParentEntity.GetState())
+		}
+	}
+
+	childSlotIdx, childTreeNode := mgr.getTreeNode(childId)
+	if childSlotIdx < 0 {
+		return fmt.Errorf("%w: child entity %q not exists", ErrEntityTree, childId)
+	}
+	if childTreeNode == nil {
+		return fmt.Errorf("%w: child entity %q not in the entity-tree", ErrEntityTree, childId)
+	}
+
+	childEntity := mgr.entityList.Get(childSlotIdx).V
+
+	if childEntity.GetState() < ec.EntityState_Awake || childEntity.GetState() > ec.EntityState_Alive {
+		return fmt.Errorf("%w: child entity %q is in an unexpected state %q", ErrEntityTree, childId, childEntity.GetState())
+	}
+
+	if childEntity.GetTreeNodeState() != ec.TreeNodeState_Attached {
+		return fmt.Errorf("%w: child entity %q has an unexpected tree node state %q", ErrEntityTree, childId, childEntity.GetTreeNodeState())
+	}
+
+	ec.UnsafeEntity(childEntity).SetTreeNodeState(ec.TreeNodeState_Moving)
+
+	fromParentId := ForestNodeId
+	fromParentTreeNode := mgr.entityTreeNodes[forestNodeIdx]
+	var fromParentEntity ec.Entity
+	if childTreeNode.parent >= 0 {
+		fromParentTreeNode = mgr.entityTreeNodes[childTreeNode.parent]
+		fromParentEntity = mgr.entityList.Get(childTreeNode.parent).V
+		fromParentId = fromParentEntity.GetId()
+	}
+
+	toParentId := parentId
+	var toParentEntity ec.Entity
+	if toParentSlotIdx >= 0 {
+		toParentEntity = mgr.entityList.Get(toParentSlotIdx).V
+	}
+
+	{
+		caller := makeTreeNodeCaller(childEntity)
+
+		if !caller.Call(func() {
+			ec.UnsafeEntity(childEntity).EmitEventTreeNodeDetachParent(fromParentId)
+		}) {
+			return nil
+		}
+
+		if fromParentEntity != nil {
+			if !caller.Call(func() {
+				ec.UnsafeEntity(fromParentEntity).EmitEventTreeNodeRemoveChild(childId)
+			}) {
+				return nil
+			}
+		}
+
+		fromParentTreeNode.children.ReleaseIfVersion(childTreeNode.attachedIndex, childTreeNode.attachedVersion)
+		attachedSlot := toParentTreeNode.children.PushBack(childSlotIdx)
+		childTreeNode.parent = toParentSlotIdx
+		childTreeNode.attachedIndex = attachedSlot.Index()
+		childTreeNode.attachedVersion = attachedSlot.Version()
+
+		if !caller.Call(func() {
+			_EmitEventEntityTreeMoveNode(mgr, mgr, childId, fromParentId, toParentId)
+		}) {
+			return nil
+		}
+
+		if toParentEntity != nil {
+			if !caller.Call(func() {
+				ec.UnsafeEntity(toParentEntity).EmitEventTreeNodeAddChild(childId)
+			}) {
+				return nil
+			}
+		}
+
+		if !caller.Call(func() {
+			ec.UnsafeEntity(childEntity).EmitEventTreeNodeAttachParent(parentId)
+		}) {
+			return nil
+		}
+
+		if !caller.Call(func() {
+			ec.UnsafeEntity(childEntity).EmitEventTreeNodeMoveTo(fromParentId, toParentId)
+		}) {
+			return nil
+		}
+	}
+
+	ec.UnsafeEntity(childEntity).SetTreeNodeState(ec.TreeNodeState_Attached)
+
+	return nil
+}
+
+// IsFreedom 是否是自由节点
+func (mgr *_EntityManagerBehavior) IsFreedom(entityId uid.Id) (bool, error) {
+	slotIdx, treeNode := mgr.getTreeNode(entityId)
+	if slotIdx < 0 {
+		return false, fmt.Errorf("%w: entity %q not exists", ErrEntityTree, entityId)
+	}
+	return treeNode == nil, nil
+}
+
+// IsRoot 是否是根节点
+func (mgr *_EntityManagerBehavior) IsRoot(entityId uid.Id) (bool, error) {
+	slotIdx, treeNode := mgr.getTreeNode(entityId)
+	if slotIdx < 0 {
+		return false, fmt.Errorf("%w: entity %q not exists", ErrEntityTree, entityId)
+	}
+	if treeNode == nil {
+		return false, fmt.Errorf("%w: entity %q not in the entity-tree", ErrEntityTree, entityId)
+	}
+	return treeNode.parent == forestNodeIdx, nil
+}
+
+// IsLeaf 是否是叶子节点
+func (mgr *_EntityManagerBehavior) IsLeaf(entityId uid.Id) (bool, error) {
+	slotIdx, treeNode := mgr.getTreeNode(entityId)
+	if slotIdx < 0 {
+		return false, fmt.Errorf("%w: entity %q not exists", ErrEntityTree, entityId)
+	}
+	if treeNode == nil {
+		return false, fmt.Errorf("%w: entity %q not in the entity-tree", ErrEntityTree, entityId)
+	}
+	return treeNode.children.Len()-treeNode.children.OrphanCount() <= 0, nil
+}
+
 // GetParent 获取父实体
-func (mgr *_EntityMgrBehavior) GetParent(entityId uid.Id) (ec.Entity, bool) {
-	entity, ok := mgr.GetEntity(entityId)
-	if !ok {
-		return nil, false
+func (mgr *_EntityManagerBehavior) GetParent(childId uid.Id) (ec.Entity, error) {
+	slotIdx, treeNode := mgr.getTreeNode(childId)
+	if slotIdx < 0 {
+		return nil, fmt.Errorf("%w: child entity %q not exists", ErrEntityTree, childId)
 	}
-	return entity.GetTreeNodeParent()
+	if treeNode == nil {
+		return nil, fmt.Errorf("%w: child entity %q not in the entity-tree", ErrEntityTree, childId)
+	}
+	if treeNode.parent == forestNodeIdx {
+		return nil, fmt.Errorf("%w: child entity %q is root node", ErrEntityTree, childId)
+	}
+	return mgr.entityList.Get(treeNode.parent).V, nil
 }
 
-// EventEntityTreeAddNode 事件：新增实体树节点
-func (mgr *_EntityMgrBehavior) EventEntityTreeAddNode() event.IEvent {
-	return &mgr.eventEntityTreeAddChild
+// RangeChildren 遍历所有子节点
+func (mgr *_EntityManagerBehavior) RangeChildren(parentId uid.Id, fun generic.Func1[ec.Entity, bool]) error {
+	_, treeNode := mgr.getTreeNode(parentId)
+	if treeNode == nil {
+		return fmt.Errorf("%w: parent entity %q not in the entity-tree", ErrEntityTree, parentId)
+	}
+	treeNode.children.Traversal(func(slot *generic.FreeSlot[int]) bool {
+		return fun(mgr.entityList.Get(slot.V).V)
+	})
+	return nil
 }
 
-// EventEntityTreeRemoveNode 事件：删除实体树节点
-func (mgr *_EntityMgrBehavior) EventEntityTreeRemoveNode() event.IEvent {
-	return &mgr.eventEntityTreeRemoveChild
+// EachChildren 遍历每个子节点
+func (mgr *_EntityManagerBehavior) EachChildren(parentId uid.Id, fun generic.Action1[ec.Entity]) error {
+	_, treeNode := mgr.getTreeNode(parentId)
+	if treeNode == nil {
+		return fmt.Errorf("%w: parent entity %q not in the entity-tree", ErrEntityTree, parentId)
+	}
+	treeNode.children.TraversalEach(func(slot *generic.FreeSlot[int]) {
+		fun.UnsafeCall(mgr.entityList.Get(slot.V).V)
+	})
+	return nil
 }
 
-func (mgr *_EntityMgrBehavior) addToParentNode(entity, parent ec.Entity) {
-	if entity == nil {
-		panic(fmt.Errorf("%w: %w: entity is nil", ErrEntityMgr, exception.ErrArgs))
+// ReversedRangeChildren 反向遍历所有子节点
+func (mgr *_EntityManagerBehavior) ReversedRangeChildren(parentId uid.Id, fun generic.Func1[ec.Entity, bool]) error {
+	_, treeNode := mgr.getTreeNode(parentId)
+	if treeNode == nil {
+		return fmt.Errorf("%w: parent entity %q not in the entity-tree", ErrEntityTree, parentId)
 	}
-
-	if parent == nil {
-		panic(fmt.Errorf("%w: %w: parent is nil", ErrEntityMgr, exception.ErrArgs))
-	}
-
-	if entity.GetState() > ec.EntityState_Alive || parent.GetState() > ec.EntityState_Alive {
-		return
-	}
-
-	if entity.GetTreeNodeState() != ec.TreeNodeState_Freedom {
-		return
-	}
-
-	mgr.enterParent(entity, parent)
+	treeNode.children.ReversedTraversal(func(slot *generic.FreeSlot[int]) bool {
+		return fun.UnsafeCall(mgr.entityList.Get(slot.V).V)
+	})
+	return nil
 }
 
-func (mgr *_EntityMgrBehavior) attachParentNode(entity, parent ec.Entity) {
-	if entity == nil {
-		panic(fmt.Errorf("%w: %w: entity is nil", ErrEntityMgr, exception.ErrArgs))
+// ReversedEachChildren 反向遍历每个子节点
+func (mgr *_EntityManagerBehavior) ReversedEachChildren(parentId uid.Id, fun generic.Action1[ec.Entity]) error {
+	_, treeNode := mgr.getTreeNode(parentId)
+	if treeNode == nil {
+		return fmt.Errorf("%w: parent entity %q not in the entity-tree", ErrEntityTree, parentId)
 	}
-
-	if parent == nil {
-		panic(fmt.Errorf("%w: %w: parent is nil", ErrEntityMgr, exception.ErrArgs))
-	}
-
-	if entity.GetState() > ec.EntityState_Alive || parent.GetState() > ec.EntityState_Alive {
-		return
-	}
-
-	if entity.GetTreeNodeState() != ec.TreeNodeState_Attaching {
-		return
-	}
-
-	ec.UnsafeEntity(entity).EnterParentNode()
-
-	_EmitEventEntityTreeAddNodeWithInterrupt(mgr, func(entityTree EntityTree, parent, child ec.Entity) bool {
-		return parent.GetState() > ec.EntityState_Alive || child.GetState() > ec.EntityState_Alive
-	}, mgr, parent, entity)
-
-	if entity.GetState() > ec.EntityState_Alive || parent.GetState() > ec.EntityState_Alive {
-		return
-	}
-
-	ec.UnsafeEntity(entity).SetTreeNodeState(ec.TreeNodeState_Attached)
+	treeNode.children.ReversedTraversalEach(func(slot *generic.FreeSlot[int]) {
+		fun.UnsafeCall(mgr.entityList.Get(slot.V).V)
+	})
+	return nil
 }
 
-func (mgr *_EntityMgrBehavior) detachParentNode(entity ec.Entity) {
-	if entity == nil {
-		panic(fmt.Errorf("%w: %w: entity is nil", ErrEntityMgr, exception.ErrArgs))
+// FilterChildren 过滤并获取子节点
+func (mgr *_EntityManagerBehavior) FilterChildren(parentId uid.Id, fun generic.Func1[ec.Entity, bool]) ([]ec.Entity, error) {
+	_, treeNode := mgr.getTreeNode(parentId)
+	if treeNode == nil {
+		return nil, fmt.Errorf("%w: parent entity %q not in the entity-tree", ErrEntityTree, parentId)
 	}
 
-	if entity.GetTreeNodeState() != ec.TreeNodeState_Detaching {
-		return
-	}
+	var entities []ec.Entity
 
-	parent, ok := entity.GetTreeNodeParent()
-	if !ok {
-		return
-	}
-
-	_EmitEventEntityTreeRemoveNodeWithInterrupt(mgr, func(entityTree EntityTree, parent, child ec.Entity) bool {
-		return parent.GetState() >= ec.EntityState_Death || child.GetState() >= ec.EntityState_Death
-	}, mgr, parent, entity)
-
-	ec.UnsafeEntity(entity).LeaveParentNode()
-}
-
-func (mgr *_EntityMgrBehavior) removeFromParentNode(entity ec.Entity) {
-	if entity == nil {
-		panic(fmt.Errorf("%w: %w: entity is nil", ErrEntityMgr, exception.ErrArgs))
-	}
-
-	mgr.leaveParent(entity)
-}
-
-func (mgr *_EntityMgrBehavior) changeParentNode(entity, parent ec.Entity) {
-	if entity == nil {
-		panic(fmt.Errorf("%w: %w: entity is nil", ErrEntityMgr, exception.ErrArgs))
-	}
-
-	if parent == nil {
-		panic(fmt.Errorf("%w: %w: parent is nil", ErrEntityMgr, exception.ErrArgs))
-	}
-
-	if entity.GetState() > ec.EntityState_Alive || parent.GetState() > ec.EntityState_Alive {
-		return
-	}
-
-	if entity.GetTreeNodeState() != ec.TreeNodeState_Attached {
-		return
-	}
-
-	ec.UnsafeEntity(entity).SetTreeNodeState(ec.TreeNodeState_Detaching)
-
-	mgr.detachParentNode(entity)
-
-	if entity.GetState() > ec.EntityState_Alive || parent.GetState() > ec.EntityState_Alive {
-		return
-	}
-
-	mgr.enterParent(entity, parent)
-	mgr.attachParentNode(entity, parent)
-}
-
-func (mgr *_EntityMgrBehavior) enterParent(entity, parent ec.Entity) {
-	parentNode, ok := mgr.treeNodes[parent.GetId()]
-	if !ok {
-		parentNode = &_TreeNode{}
-		mgr.treeNodes[parent.GetId()] = parentNode
-	}
-	if parentNode.children == nil {
-		parentNode.children = generic.NewList[iface.FaceAny]()
-		parentNode.children.New = mgr.managedGetListNodeFaceAny
-	}
-
-	node, ok := mgr.treeNodes[entity.GetId()]
-	if !ok {
-		node = &_TreeNode{}
-		mgr.treeNodes[entity.GetId()] = node
-	}
-
-	if node.parentAt != nil {
-		node.parentAt.Escape()
-		node.parentAt = nil
-	}
-
-	node.parentAt = parentNode.children.PushBack(iface.MakeFaceAny(entity))
-
-	ec.UnsafeEntity(entity).SetTreeNodeParent(parent)
-	ec.UnsafeEntity(entity).SetTreeNodeState(ec.TreeNodeState_Attaching)
-}
-
-func (mgr *_EntityMgrBehavior) leaveParent(entity ec.Entity) {
-	ec.UnsafeEntity(entity).SetTreeNodeParent(nil)
-	ec.UnsafeEntity(entity).SetTreeNodeState(ec.TreeNodeState_Freedom)
-
-	node, ok := mgr.treeNodes[entity.GetId()]
-	if ok {
-		if node.parentAt != nil {
-			node.parentAt.Escape()
-			node.parentAt = nil
+	ver := treeNode.children.Version()
+	treeNode.children.TraversalEach(func(slot *generic.FreeSlot[int]) {
+		if slot.Version() > ver {
+			return
 		}
-
-		if node.children == nil || node.children.Len() <= 0 {
-			delete(mgr.treeNodes, entity.GetId())
+		entity := mgr.entityList.Get(slot.V).V
+		if fun.UnsafeCall(entity) {
+			entities = append(entities, entity)
 		}
+	})
+
+	return entities, nil
+}
+
+// ListChildren 获取所有子节点
+func (mgr *_EntityManagerBehavior) ListChildren(parentId uid.Id) ([]ec.Entity, error) {
+	_, treeNode := mgr.getTreeNode(parentId)
+	if treeNode == nil {
+		return nil, fmt.Errorf("%w: parent entity %q not in the entity-tree", ErrEntityTree, parentId)
 	}
+
+	entities := make([]ec.Entity, 0, treeNode.children.Len()-treeNode.children.OrphanCount())
+
+	treeNode.children.TraversalEach(func(slot *generic.FreeSlot[int]) {
+		entities = append(entities, mgr.entityList.Get(slot.V).V)
+	})
+
+	return entities, nil
+}
+
+// CountChildren 获取子节点数量
+func (mgr *_EntityManagerBehavior) CountChildren(parentId uid.Id) (int, error) {
+	_, treeNode := mgr.getTreeNode(parentId)
+	if treeNode == nil {
+		return 0, fmt.Errorf("%w: parent entity %q not in the entity-tree", ErrEntityTree, parentId)
+	}
+	return treeNode.children.Len() - treeNode.children.OrphanCount(), nil
+}
+
+func (mgr *_EntityManagerBehavior) onEntityDestroyRemoveNode(childId uid.Id) {
+	childSlotIdx, childTreeNode := mgr.getTreeNode(childId)
+	if childSlotIdx < 0 {
+		return
+	}
+	if childTreeNode == nil {
+		return
+	}
+
+	childEntity := mgr.entityList.Get(childSlotIdx).V
+
+	ec.UnsafeEntity(childEntity).SetTreeNodeState(ec.TreeNodeState_Detaching)
+
+	parentId := ForestNodeId
+	parentTreeNode := mgr.entityTreeNodes[forestNodeIdx]
+	var parentEntity ec.Entity
+	if childTreeNode.parent >= 0 {
+		parentTreeNode = mgr.entityTreeNodes[childTreeNode.parent]
+		parentEntity = mgr.entityList.Get(childTreeNode.parent).V
+		parentId = parentEntity.GetId()
+	}
+
+	childTreeNode.children.ReversedTraversalEach(func(slot *generic.FreeSlot[int]) {
+		entity := mgr.entityList.Get(slot.V).V
+		mgr.onEntityDestroyRemoveNode(entity.GetId())
+	})
+
+	ec.UnsafeEntity(childEntity).EmitEventTreeNodeDetachParent(parentId)
+
+	if parentEntity != nil {
+		ec.UnsafeEntity(parentEntity).EmitEventTreeNodeRemoveChild(childId)
+	}
+
+	_EmitEventEntityTreeRemoveNode(mgr, mgr, parentId, childId)
+
+	delete(mgr.entityTreeNodes, childSlotIdx)
+	parentTreeNode.children.ReleaseIfVersion(childTreeNode.attachedIndex, childTreeNode.attachedVersion)
+
+	ec.UnsafeEntity(childEntity).SetTreeNodeState(ec.TreeNodeState_Freedom)
+}
+
+func (mgr *_EntityManagerBehavior) getTreeNode(entityId uid.Id) (int, *_TreeNode) {
+	if entityId == ForestNodeId {
+		return forestNodeIdx, mgr.entityTreeNodes[forestNodeIdx]
+	}
+
+	slotIdx, ok := mgr.entityIdIndex[entityId]
+	if !ok {
+		return -2, nil
+	}
+
+	treeNode, ok := mgr.entityTreeNodes[slotIdx]
+	if !ok {
+		return slotIdx, nil
+	}
+
+	return slotIdx, treeNode
+}
+
+func makeTreeNodeCaller(entity ec.Entity) _TreeNodeCaller {
+	return _TreeNodeCaller{entity: entity, state: entity.GetTreeNodeState()}
+}
+
+type _TreeNodeCaller struct {
+	entity ec.Entity
+	state  ec.TreeNodeState
+}
+
+func (c _TreeNodeCaller) Call(fun func()) bool {
+	if c.entity.GetTreeNodeState() != c.state {
+		return false
+	}
+
+	fun()
+
+	return c.entity.GetTreeNodeState() == c.state
 }

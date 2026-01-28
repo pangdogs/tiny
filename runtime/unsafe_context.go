@@ -1,8 +1,29 @@
+/*
+ * This file is part of Golaxy Distributed Service Development Framework.
+ *
+ * Golaxy Distributed Service Development Framework is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 2.1 of the License, or
+ * (at your option) any later version.
+ *
+ * Golaxy Distributed Service Development Framework is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Golaxy Distributed Service Development Framework. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Copyright (c) 2024 pangdogs.
+ */
+
 package runtime
 
 import (
-	"git.golaxy.org/tiny/utils/async"
-	"git.golaxy.org/tiny/utils/uid"
+	"sync/atomic"
+
+	"git.golaxy.org/core/extension"
+	"git.golaxy.org/core/utils/async"
 )
 
 // Deprecated: UnsafeContext 访问运行时上下文内部方法
@@ -16,37 +37,37 @@ type _UnsafeContext struct {
 	Context
 }
 
-// Init 初始化
-func (uc _UnsafeContext) Init(opts ContextOptions) {
-	uc.Context.init(opts)
-}
-
 // GetOptions 获取运行时上下文所有选项
-func (uc _UnsafeContext) GetOptions() *ContextOptions {
-	return uc.getOptions()
+func (u _UnsafeContext) GetOptions() *ContextOptions {
+	return u.getOptions()
 }
 
-// NewId 创建Id
-func (uc _UnsafeContext) NewId() uid.Id {
-	return uc.newId()
+// EmitEventRunningEvent 发送运行事件
+func (u _UnsafeContext) EmitEventRunningEvent(runningEvent RunningEvent, args ...any) {
+	u.emitEventRunningEvent(runningEvent, args...)
 }
 
 // SetFrame 设置帧
-func (uc _UnsafeContext) SetFrame(frame Frame) {
-	uc.setFrame(frame)
+func (u _UnsafeContext) SetFrame(frame Frame) {
+	u.setFrame(frame)
 }
 
 // SetCallee 设置调用接受者
-func (uc _UnsafeContext) SetCallee(callee async.Callee) {
-	uc.setCallee(callee)
+func (u _UnsafeContext) SetCallee(callee async.Callee) {
+	u.setCallee(callee)
 }
 
-// ChangeRunningState 修改运行状态
-func (uc _UnsafeContext) ChangeRunningState(state RunningState) {
-	uc.changeRunningState(state)
+// GetAddInManager 获取插件管理器
+func (u _UnsafeContext) GetAddInManager() extension.RuntimeAddInManager {
+	return u.getAddInManager()
+}
+
+// GetScoped 获取作用域状态
+func (u _UnsafeContext) GetScoped() *atomic.Bool {
+	return u.getScoped()
 }
 
 // GC GC
-func (uc _UnsafeContext) GC() {
-	uc.gc()
+func (u _UnsafeContext) GC() {
+	u.gc()
 }

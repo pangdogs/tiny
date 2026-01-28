@@ -1,8 +1,28 @@
+/*
+ * This file is part of Golaxy Distributed Service Development Framework.
+ *
+ * Golaxy Distributed Service Development Framework is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 2.1 of the License, or
+ * (at your option) any later version.
+ *
+ * Golaxy Distributed Service Development Framework is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Golaxy Distributed Service Development Framework. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Copyright (c) 2024 pangdogs.
+ */
+
 package runtime
 
 import (
-	"git.golaxy.org/tiny/utils/option"
 	"time"
+
+	"git.golaxy.org/core/utils/option"
 )
 
 // NewFrame 创建帧，在运行时初始化时可以设置帧，用于设置运行时帧更新方式，在逻辑运行过程中可以在运行时上下文中获取帧信息。
@@ -17,9 +37,9 @@ type Frame interface {
 	iFrame
 
 	// GetTargetFPS 获取目标FPS
-	GetTargetFPS() float32
+	GetTargetFPS() float64
 	// GetCurFPS 获取当前FPS
-	GetCurFPS() float32
+	GetCurFPS() float64
 	// GetMode 获取帧模式
 	GetMode() FrameMode
 	// GetTotalFrames 获取运行帧数上限
@@ -52,7 +72,7 @@ type iFrame interface {
 
 type _FrameBehavior struct {
 	options              FrameOptions
-	curFPS               float32
+	curFPS               float64
 	curFrames            int64
 	runningBeginTime     time.Time
 	runningElapseTime    time.Duration
@@ -66,12 +86,12 @@ type _FrameBehavior struct {
 }
 
 // GetTargetFPS 获取目标FPS
-func (frame *_FrameBehavior) GetTargetFPS() float32 {
+func (frame *_FrameBehavior) GetTargetFPS() float64 {
 	return frame.options.TargetFPS
 }
 
 // GetCurFPS 获取当前FPS
-func (frame *_FrameBehavior) GetCurFPS() float32 {
+func (frame *_FrameBehavior) GetCurFPS() float64 {
 	return frame.curFPS
 }
 
@@ -120,8 +140,8 @@ func (frame *_FrameBehavior) GetLastUpdateElapseTime() time.Duration {
 	return frame.lastUpdateElapseTime
 }
 
-func (frame *_FrameBehavior) init(opts FrameOptions) {
-	frame.options = opts
+func (frame *_FrameBehavior) init(options FrameOptions) {
+	frame.options = options
 }
 
 func (frame *_FrameBehavior) setCurFrames(v int64) {
@@ -131,7 +151,7 @@ func (frame *_FrameBehavior) setCurFrames(v int64) {
 func (frame *_FrameBehavior) runningBegin() {
 	now := time.Now()
 
-	frame.curFPS = frame.options.TargetFPS
+	frame.curFPS = 0
 	frame.curFrames = 0
 
 	frame.statFPSBeginTime = now
@@ -152,7 +172,8 @@ func (frame *_FrameBehavior) runningBegin() {
 	}
 }
 
-func (frame *_FrameBehavior) runningEnd() {}
+func (frame *_FrameBehavior) runningEnd() {
+}
 
 func (frame *_FrameBehavior) loopBegin() {
 	switch frame.options.Mode {
@@ -164,7 +185,7 @@ func (frame *_FrameBehavior) loopBegin() {
 
 		statInterval := frame.loopBeginTime.Sub(frame.statFPSBeginTime).Seconds()
 		if statInterval >= 1 {
-			frame.curFPS = float32(float64(frame.statFPSFrames) / statInterval)
+			frame.curFPS = float64(frame.statFPSFrames) / statInterval
 			frame.statFPSBeginTime = frame.loopBeginTime
 			frame.statFPSFrames = 0
 		}

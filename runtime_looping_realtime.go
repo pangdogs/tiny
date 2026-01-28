@@ -1,24 +1,45 @@
+/*
+ * This file is part of Golaxy Distributed Service Development Framework.
+ *
+ * Golaxy Distributed Service Development Framework is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 2.1 of the License, or
+ * (at your option) any later version.
+ *
+ * Golaxy Distributed Service Development Framework is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Golaxy Distributed Service Development Framework. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Copyright (c) 2024 pangdogs.
+ */
+
 package tiny
 
 import (
-	"git.golaxy.org/tiny/runtime"
+	"sync"
 	"time"
+
+	"git.golaxy.org/tiny/runtime"
 )
 
 func (rt *RuntimeBehavior) loopingRealTime() {
-	gcTicker := time.NewTicker(rt.opts.GCInterval)
+	gcTicker := time.NewTicker(rt.options.GCInterval)
 	defer gcTicker.Stop()
 
-	frame := runtime.UnsafeFrame(rt.opts.Frame)
-	go rt.makeFrameTasks(frame.GetCurFrames()+1, frame.GetTotalFrames(), frame.GetTargetFPS())
+	wg := &sync.WaitGroup{}
+	frame := rt.options.Frame
+
+	wg.Add(1)
+	go rt.makeFrameTasks(wg, frame.GetCurFrames()+1, frame.GetTotalFrames(), frame.GetTargetFPS())
 
 loop:
 	for rt.frameLoopBegin(); ; {
 		select {
-		case task, ok := <-rt.processQueue:
-			if !ok {
-				break loop
-			}
+		case task := <-rt.processQueue:
 			rt.runTask(task)
 
 		case <-gcTicker.C:
@@ -29,6 +50,7 @@ loop:
 		}
 	}
 
+	wg.Wait()
 	close(rt.processQueue)
 
 loopEnding:
@@ -49,9 +71,13 @@ loopEnding:
 	rt.frameLoopEnd()
 }
 
-func (rt *RuntimeBehavior) makeFrameTasks(curFrames, totalFrames int64, targetFPS float32) {
-	updateTicker := time.NewTicker(time.Duration(float64(time.Second) / float64(targetFPS)))
+func (rt *RuntimeBehavior) makeFrameTasks(wg *sync.WaitGroup, curFrames, totalFrames int64, targetFPS float64) {
+	defer wg.Done()
+
+	updateTicker := time.NewTicker(time.Duration(float64(time.Second) / targetFPS))
 	defer updateTicker.Stop()
+
+	done := make(chan struct{}, 1)
 
 	for {
 		if totalFrames > 0 && curFrames >= totalFrames {
@@ -61,16 +87,18 @@ func (rt *RuntimeBehavior) makeFrameTasks(curFrames, totalFrames int64, targetFP
 
 		select {
 		case <-updateTicker.C:
-			func() {
-				defer func() {
-					recover()
-				}()
+			select {
+			case rt.processQueue <- _Task{typ: _TaskType_Frame, action: rt.frameLoop, done: done}:
 				select {
-				case rt.processQueue <- _Task{typ: _TaskType_Frame, action: rt.frameLoop}:
+				case <-done:
 					curFrames++
+					continue
 				case <-rt.ctx.Done():
+					return
 				}
-			}()
+			case <-rt.ctx.Done():
+				return
+			}
 		case <-rt.ctx.Done():
 			return
 		}
@@ -83,18 +111,18 @@ func (rt *RuntimeBehavior) frameLoop(...any) {
 }
 
 func (rt *RuntimeBehavior) frameLoopBegin() {
-	rt.changeRunningState(runtime.RunningState_FrameLoopBegin)
-	rt.changeRunningState(runtime.RunningState_FrameUpdateBegin)
+	rt.emitEventRunningEvent(runtime.RunningEvent_FrameLoopBegin)
+	rt.emitEventRunningEvent(runtime.RunningEvent_FrameUpdateBegin)
 
-	_EmitEventUpdate(&rt.eventUpdate)
-	_EmitEventLateUpdate(&rt.eventLateUpdate)
+	_EmitEventUpdate(&rt.runtimeEventTab)
+	_EmitEventLateUpdate(&rt.runtimeEventTab)
 
-	rt.changeRunningState(runtime.RunningState_FrameUpdateEnd)
+	rt.emitEventRunningEvent(runtime.RunningEvent_FrameUpdateEnd)
 }
 
 func (rt *RuntimeBehavior) frameLoopEnd() {
-	rt.changeRunningState(runtime.RunningState_FrameLoopEnd)
+	rt.emitEventRunningEvent(runtime.RunningEvent_FrameLoopEnd)
 
-	frame := runtime.UnsafeFrame(rt.opts.Frame)
+	frame := runtime.UnsafeFrame(rt.options.Frame)
 	frame.SetCurFrames(frame.GetCurFrames() + 1)
 }

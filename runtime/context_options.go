@@ -1,83 +1,125 @@
+/*
+ * This file is part of Golaxy Distributed Service Development Framework.
+ *
+ * Golaxy Distributed Service Development Framework is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 2.1 of the License, or
+ * (at your option) any later version.
+ *
+ * Golaxy Distributed Service Development Framework is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Golaxy Distributed Service Development Framework. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Copyright (c) 2024 pangdogs.
+ */
+
 package runtime
 
 import (
 	"context"
-	"git.golaxy.org/tiny/plugin"
-	"git.golaxy.org/tiny/utils/generic"
-	"git.golaxy.org/tiny/utils/iface"
-	"git.golaxy.org/tiny/utils/option"
+	"sync/atomic"
+
+	"git.golaxy.org/core/extension"
+	"git.golaxy.org/core/utils/generic"
+	"git.golaxy.org/core/utils/iface"
+	"git.golaxy.org/core/utils/option"
+	"git.golaxy.org/tiny/ec/pt"
 )
 
 type (
-	RunningHandler = generic.DelegateAction2[Context, RunningState] // 运行状态变化处理器
+	RunningEventCB = generic.ActionVar2[Context, RunningEvent, any] // 运行事件回调
+)
+
+var (
+	uidGenerator = &atomic.Int64{}
 )
 
 // ContextOptions 创建运行时上下文的所有选项
 type ContextOptions struct {
-	CompositeFace  iface.Face[Context] // 扩展者，在扩展运行时上下文自身能力时使用
-	Context        context.Context     // 父Context
-	AutoRecover    bool                // 是否开启panic时自动恢复
-	ReportError    chan error          // panic时错误写入的error channel
-	PluginBundle   plugin.PluginBundle // 插件包
-	UsePool        bool                // 使用托管对象池
-	UsePoolSize    int                 // 托管对象池初始大小
-	RunningHandler RunningHandler      // 运行状态变化处理器
+	InstanceFace   iface.Face[Context]           // 实例，用于扩展运行时上下文能力
+	Context        context.Context               // 父Context
+	AutoRecover    bool                          // 是否开启panic时自动恢复
+	ReportError    chan error                    // panic时错误写入的error channel
+	Name           string                        // 运行时名称
+	UIDGenerator   *atomic.Int64                 // uid生成器
+	EntityLib      pt.EntityLib                  // 实体原型库
+	AddInManager   extension.RuntimeAddInManager // 插件管理器
+	RunningEventCB RunningEventCB                // 运行事件回调
 }
 
 type _ContextOption struct{}
 
 // Default 默认值
 func (_ContextOption) Default() option.Setting[ContextOptions] {
-	return func(o *ContextOptions) {
-		With.Context.CompositeFace(iface.Face[Context]{})(o)
-		With.Context.Context(nil)(o)
-		With.Context.PanicHandling(false, nil)(o)
-		With.Context.PluginBundle(plugin.NewPluginBundle())(o)
-		With.Context.UsePool(false, 0)(o)
-		With.Context.RunningHandler(nil)(o)
+	return func(options *ContextOptions) {
+		With.Context.InstanceFace(iface.Face[Context]{}).Apply(options)
+		With.Context.Context(nil).Apply(options)
+		With.Context.PanicHandling(false, nil).Apply(options)
+		With.Context.Name("").Apply(options)
+		With.Context.UIDGenerator(uidGenerator).Apply(options)
+		With.Context.EntityLib(nil).Apply(options)
+		With.Context.AddInManager(nil).Apply(options)
+		With.Context.RunningEventCB(nil).Apply(options)
 	}
 }
 
-// CompositeFace 扩展者，在扩展运行时上下文自身能力时使用
-func (_ContextOption) CompositeFace(face iface.Face[Context]) option.Setting[ContextOptions] {
-	return func(o *ContextOptions) {
-		o.CompositeFace = face
+// InstanceFace 实例，用于扩展运行时上下文能力
+func (_ContextOption) InstanceFace(face iface.Face[Context]) option.Setting[ContextOptions] {
+	return func(options *ContextOptions) {
+		options.InstanceFace = face
 	}
 }
 
 // Context 父Context
 func (_ContextOption) Context(ctx context.Context) option.Setting[ContextOptions] {
-	return func(o *ContextOptions) {
-		o.Context = ctx
+	return func(options *ContextOptions) {
+		options.Context = ctx
 	}
 }
 
 // PanicHandling panic时的处理方式
 func (_ContextOption) PanicHandling(autoRecover bool, reportError chan error) option.Setting[ContextOptions] {
-	return func(o *ContextOptions) {
-		o.AutoRecover = autoRecover
-		o.ReportError = reportError
+	return func(options *ContextOptions) {
+		options.AutoRecover = autoRecover
+		options.ReportError = reportError
 	}
 }
 
-// PluginBundle 插件包
-func (_ContextOption) PluginBundle(bundle plugin.PluginBundle) option.Setting[ContextOptions] {
-	return func(o *ContextOptions) {
-		o.PluginBundle = bundle
+// Name 运行时名称
+func (_ContextOption) Name(name string) option.Setting[ContextOptions] {
+	return func(options *ContextOptions) {
+		options.Name = name
 	}
 }
 
-// UsePool 使用托管对象池
-func (_ContextOption) UsePool(b bool, size int) option.Setting[ContextOptions] {
-	return func(o *ContextOptions) {
-		o.UsePool = b
-		o.UsePoolSize = size
+// UIDGenerator uid生成器
+func (_ContextOption) UIDGenerator(gen *atomic.Int64) option.Setting[ContextOptions] {
+	return func(options *ContextOptions) {
+		options.UIDGenerator = gen
 	}
 }
 
-// RunningHandler 运行状态变化处理器
-func (_ContextOption) RunningHandler(handler RunningHandler) option.Setting[ContextOptions] {
-	return func(o *ContextOptions) {
-		o.RunningHandler = handler
+// EntityLib 实体原型库
+func (_ContextOption) EntityLib(lib pt.EntityLib) option.Setting[ContextOptions] {
+	return func(options *ContextOptions) {
+		options.EntityLib = lib
+	}
+}
+
+// AddInManager 插件管理器
+func (_ContextOption) AddInManager(mgr extension.RuntimeAddInManager) option.Setting[ContextOptions] {
+	return func(options *ContextOptions) {
+		options.AddInManager = mgr
+	}
+}
+
+// RunningEventCB 运行事件回调
+func (_ContextOption) RunningEventCB(cb RunningEventCB) option.Setting[ContextOptions] {
+	return func(options *ContextOptions) {
+		options.RunningEventCB = cb
 	}
 }

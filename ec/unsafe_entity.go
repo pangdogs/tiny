@@ -1,10 +1,32 @@
+/*
+ * This file is part of Golaxy Distributed Service Development Framework.
+ *
+ * Golaxy Distributed Service Development Framework is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 2.1 of the License, or
+ * (at your option) any later version.
+ *
+ * Golaxy Distributed Service Development Framework is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Golaxy Distributed Service Development Framework. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Copyright (c) 2024 pangdogs.
+ */
+
 package ec
 
 import (
-	"git.golaxy.org/tiny/event"
-	"git.golaxy.org/tiny/utils/iface"
-	"git.golaxy.org/tiny/utils/uid"
+	"context"
 	"reflect"
+
+	"git.golaxy.org/core/event"
+	"git.golaxy.org/core/utils/generic"
+	"git.golaxy.org/core/utils/iface"
+	"git.golaxy.org/tiny/utils/uid"
 )
 
 // Deprecated: UnsafeEntity 访问实体内部函数
@@ -18,67 +40,112 @@ type _UnsafeEntity struct {
 	Entity
 }
 
-// Init 初始化
-func (ue _UnsafeEntity) Init(opts EntityOptions) {
-	ue.init(opts)
+// WithContext 传递上下文
+func (u _UnsafeEntity) WithContext(ctx context.Context) {
+	u.withContext(ctx)
 }
 
 // GetOptions 获取实体所有选项
-func (ue _UnsafeEntity) GetOptions() *EntityOptions {
-	return ue.getOptions()
+func (u _UnsafeEntity) GetOptions() *EntityOptions {
+	return u.getOptions()
 }
 
 // SetId 设置Id
-func (ue _UnsafeEntity) SetId(id uid.Id) {
-	ue.setId(id)
+func (u _UnsafeEntity) SetId(id uid.Id) {
+	u.setId(id)
+}
+
+// SetPT 设置实体原型信息
+func (u _UnsafeEntity) SetPT(prototype EntityPT) {
+	u.setPT(prototype)
 }
 
 // SetContext 设置上下文
-func (ue _UnsafeEntity) SetContext(ctx iface.Cache) {
-	ue.setContext(ctx)
-}
-
-// GetVersion 获取组件列表变化版本号
-func (ue _UnsafeEntity) GetVersion() int64 {
-	return ue.getVersion()
+func (u _UnsafeEntity) SetContext(ctx iface.Cache) {
+	u.setContext(ctx)
 }
 
 // SetState 设置状态
-func (ue _UnsafeEntity) SetState(state EntityState) {
-	ue.setState(state)
+func (u _UnsafeEntity) SetState(state EntityState) {
+	u.setState(state)
 }
 
 // SetReflected 设置反射值
-func (ue _UnsafeEntity) SetReflected(v reflect.Value) {
-	ue.setReflected(v)
+func (u _UnsafeEntity) SetReflected(v reflect.Value) {
+	u.setReflected(v)
+}
+
+// GetProcessedStateBits 获取已处理状态标志位
+func (u _UnsafeEntity) GetProcessedStateBits() *generic.Bits16 {
+	return u.getProcessedStateBits()
+}
+
+// GetEnteredHandle 获取加入运行时时的句柄
+func (u _UnsafeEntity) GetEnteredHandle() (int, int64) {
+	return u.getEnteredHandle()
+}
+
+// SetEnteredHandle 设置加入运行时时的句柄
+func (u _UnsafeEntity) SetEnteredHandle(idx int, ver int64) {
+	u.setEnteredHandle(idx, ver)
+}
+
+// ManagedRuntimeUpdateHandle 托管运行时更新句柄
+func (u _UnsafeEntity) ManagedRuntimeUpdateHandle(updateHandle event.Handle) {
+	u.managedRuntimeUpdateHandle(updateHandle)
+}
+
+// ManagedRuntimeLateUpdateHandle 托管运行时延迟更新句柄
+func (u _UnsafeEntity) ManagedRuntimeLateUpdateHandle(lateUpdateHandle event.Handle) {
+	u.managedRuntimeLateUpdateHandle(lateUpdateHandle)
+}
+
+// ManagedUnbindRuntimeHandles 解绑定托管的运行时句柄
+func (u _UnsafeEntity) ManagedUnbindRuntimeHandles() {
+	u.managedUnbindRuntimeHandles()
+}
+
+// GetVersion 获取实体组件变化版本号
+func (u _UnsafeEntity) GetVersion() int64 {
+	return u.getVersion()
+}
+
+// GetComponentNameIndex 获取实体组件名称索引
+func (u _UnsafeEntity) GetComponentNameIndex() *generic.SliceMap[string, int] {
+	return u.getComponentNameIndex()
+}
+
+// GetComponentList 获取实体组件链表
+func (u _UnsafeEntity) GetComponentList() *generic.FreeList[Component] {
+	return u.getComponentList()
 }
 
 // SetTreeNodeState 设置实体树节点状态
-func (ue _UnsafeEntity) SetTreeNodeState(state TreeNodeState) {
-	ue.setTreeNodeState(state)
+func (u _UnsafeEntity) SetTreeNodeState(state TreeNodeState) {
+	u.setTreeNodeState(state)
 }
 
-// SetTreeNodeParent 设置在实体树中的父实体
-func (ue _UnsafeEntity) SetTreeNodeParent(parent Entity) {
-	ue.setTreeNodeParent(parent)
+// EmitEventTreeNodeAddChild 发送实体树节点添加子实体事件
+func (u _UnsafeEntity) EmitEventTreeNodeAddChild(childId uid.Id) {
+	u.emitEventTreeNodeAddChild(childId)
 }
 
-// EnterParentNode 进入父节点
-func (ue _UnsafeEntity) EnterParentNode() {
-	ue.enterParentNode()
+// EmitEventTreeNodeRemoveChild 发送实体树节点删除子实体事件
+func (u _UnsafeEntity) EmitEventTreeNodeRemoveChild(childId uid.Id) {
+	u.emitEventTreeNodeRemoveChild(childId)
 }
 
-// LeaveParentNode 离开父节点
-func (ue _UnsafeEntity) LeaveParentNode() {
-	ue.leaveParentNode()
+// EmitEventTreeNodeAttachParent 发送实体树节点加入父节点事件
+func (u _UnsafeEntity) EmitEventTreeNodeAttachParent(parentId uid.Id) {
+	u.emitEventTreeNodeAttachParent(parentId)
 }
 
-// EventEntityDestroySelf 事件：实体销毁自身
-func (ue _UnsafeEntity) EventEntityDestroySelf() event.IEvent {
-	return ue.eventEntityDestroySelf()
+// EmitEventTreeNodeDetachParent 发送实体树节点离开父节点事件
+func (u _UnsafeEntity) EmitEventTreeNodeDetachParent(parentId uid.Id) {
+	u.emitEventTreeNodeDetachParent(parentId)
 }
 
-// CleanManagedHooks 清理所有的托管hook
-func (ue _UnsafeEntity) CleanManagedHooks() {
-	ue.cleanManagedHooks()
+// EmitEventTreeNodeMoveTo 发送实体树节点切换父节点事件
+func (u _UnsafeEntity) EmitEventTreeNodeMoveTo(fromParentId, toParentId uid.Id) {
+	u.emitEventTreeNodeMoveTo(fromParentId, toParentId)
 }

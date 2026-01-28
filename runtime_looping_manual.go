@@ -5,10 +5,10 @@ import (
 )
 
 func (rt *RuntimeBehavior) loopingManual() {
-	frame := runtime.UnsafeFrame(rt.opts.Frame)
+	frame := runtime.UnsafeFrame(rt.options.Frame)
 
 	totalFrames := frame.GetTotalFrames()
-	gcFrames := int64(rt.opts.GCInterval.Seconds() * float64(frame.GetTargetFPS()))
+	gcFrames := int64(rt.options.GCInterval.Seconds() * frame.GetTargetFPS())
 
 	var curCtrl _Ctrl
 
@@ -61,7 +61,7 @@ loop:
 				goto pause
 			}
 		case _FuncAt:
-			if curCtrl.fun.Exec(rt.ctx) {
+			if curCtrl.fun.UnsafeCall(rt.ctx) {
 				curCtrl = _Ctrl{}
 				goto pause
 			}

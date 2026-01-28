@@ -3,12 +3,17 @@ package tiny
 import (
 	"context"
 	"fmt"
-	"git.golaxy.org/tiny/event"
-	"git.golaxy.org/tiny/internal/gctx"
-	"git.golaxy.org/tiny/plugin"
-	"git.golaxy.org/tiny/runtime"
-	"git.golaxy.org/tiny/utils/generic"
 	"time"
+
+	"git.golaxy.org/core/event"
+	"git.golaxy.org/core/extension"
+	"git.golaxy.org/core/utils/async"
+	"git.golaxy.org/core/utils/corectx"
+	"git.golaxy.org/core/utils/generic"
+	"git.golaxy.org/tiny/ec"
+	"git.golaxy.org/tiny/ec/pt"
+	"git.golaxy.org/tiny/runtime"
+	"git.golaxy.org/tiny/utils/exception"
 )
 
 var (
@@ -31,29 +36,33 @@ type _Ctrl struct {
 }
 
 // Run 运行
-func (rt *RuntimeBehavior) Run() <-chan struct{} {
+func (rt *RuntimeBehavior) Run() async.AsyncRet {
 	ctx := rt.ctx
 
 	select {
 	case <-ctx.Done():
-		panic(fmt.Errorf("%w: %w", ErrRuntime, context.Canceled))
-	case <-ctx.TerminatedChan():
-		panic(fmt.Errorf("%w: terminated", ErrRuntime))
+		exception.Panicf("%w: %w", ErrRuntime, context.Canceled)
+	case <-ctx.Terminated():
+		exception.Panicf("%w: terminated", ErrRuntime)
 	default:
 	}
 
-	if parentCtx, ok := ctx.GetParentContext().(gctx.Context); ok {
+	if !rt.isRunning.CompareAndSwap(false, true) {
+		exception.Panicf("%w: already running", ErrRuntime)
+	}
+
+	if parentCtx, ok := ctx.GetParentContext().(corectx.Context); ok {
 		parentCtx.GetWaitGroup().Add(1)
 	}
 
 	go rt.running()
 
-	return gctx.UnsafeContext(ctx).GetTerminatedChan()
+	return ctx.Terminated()
 }
 
 // Play 播放指定时长
 func (rt *RuntimeBehavior) Play(delta time.Duration) (err error) {
-	frame := rt.opts.Frame
+	frame := rt.options.Frame
 
 	if frame == nil || frame.GetMode() != runtime.Manual {
 		return ErrCtrlChanClosed
@@ -65,7 +74,7 @@ func (rt *RuntimeBehavior) Play(delta time.Duration) (err error) {
 		}
 	}()
 
-	frames := int64(delta.Seconds() * float64(frame.GetTargetFPS()))
+	frames := int64(delta.Seconds() * frame.GetTargetFPS())
 	if frames <= 0 {
 		return nil
 	}
@@ -80,7 +89,7 @@ func (rt *RuntimeBehavior) Play(delta time.Duration) (err error) {
 
 // PlayAt 播放至指定位置
 func (rt *RuntimeBehavior) PlayAt(at time.Duration) (err error) {
-	frame := rt.opts.Frame
+	frame := rt.options.Frame
 
 	if frame == nil || frame.GetMode() != runtime.Manual {
 		return ErrCtrlChanClosed
@@ -92,7 +101,7 @@ func (rt *RuntimeBehavior) PlayAt(at time.Duration) (err error) {
 		}
 	}()
 
-	frames := int64(at.Seconds() * float64(frame.GetTargetFPS()))
+	frames := int64(at.Seconds() * frame.GetTargetFPS())
 	if frames <= 0 {
 		return nil
 	}
@@ -107,7 +116,7 @@ func (rt *RuntimeBehavior) PlayAt(at time.Duration) (err error) {
 
 // PlayFrames 播放指定帧数
 func (rt *RuntimeBehavior) PlayFrames(delta int64) (err error) {
-	frame := rt.opts.Frame
+	frame := rt.options.Frame
 
 	if frame == nil || frame.GetMode() != runtime.Manual {
 		return ErrCtrlChanClosed
@@ -133,7 +142,7 @@ func (rt *RuntimeBehavior) PlayFrames(delta int64) (err error) {
 
 // PlayAtFrames 播放至指定帧数
 func (rt *RuntimeBehavior) PlayAtFrames(at int64) (err error) {
-	frame := rt.opts.Frame
+	frame := rt.options.Frame
 
 	if frame == nil || frame.GetMode() != runtime.Manual {
 		return ErrCtrlChanClosed
@@ -159,7 +168,7 @@ func (rt *RuntimeBehavior) PlayAtFrames(at int64) (err error) {
 
 // PlayAtFunc 播放至函数指定位置
 func (rt *RuntimeBehavior) PlayAtFunc(fun generic.Func1[runtime.Context, bool]) (err error) {
-	frame := rt.opts.Frame
+	frame := rt.options.Frame
 
 	if frame == nil || frame.GetMode() != runtime.Manual {
 		return ErrCtrlChanClosed
@@ -180,124 +189,202 @@ func (rt *RuntimeBehavior) PlayAtFunc(fun generic.Func1[runtime.Context, bool]) 
 }
 
 // Terminate 停止
-func (rt *RuntimeBehavior) Terminate() <-chan struct{} {
+func (rt *RuntimeBehavior) Terminate() async.AsyncRet {
 	return rt.ctx.Terminate()
 }
 
-// TerminatedChan 已停止chan
-func (rt *RuntimeBehavior) TerminatedChan() <-chan struct{} {
-	return rt.ctx.TerminatedChan()
+// Terminated 已停止
+func (rt *RuntimeBehavior) Terminated() async.AsyncRet {
+	return rt.ctx.Terminated()
 }
 
 func (rt *RuntimeBehavior) running() {
 	ctx := rt.ctx
 
-	rt.changeRunningState(runtime.RunningState_Starting)
+	rt.emitEventRunningEvent(runtime.RunningEvent_Starting)
 
-	hooks := rt.loopStart()
+	handles := rt.loopStart()
 
-	rt.changeRunningState(runtime.RunningState_Started)
+	rt.emitEventRunningEvent(runtime.RunningEvent_Started)
 
 	rt.mainLoop()
 
-	rt.changeRunningState(runtime.RunningState_Terminating)
+	rt.emitEventRunningEvent(runtime.RunningEvent_Terminating)
 
-	rt.loopStop(hooks)
+	rt.loopStop(handles)
 	ctx.GetWaitGroup().Wait()
 
-	rt.changeRunningState(runtime.RunningState_Terminated)
+	rt.emitEventRunningEvent(runtime.RunningEvent_Terminated)
 
-	if parentCtx, ok := ctx.GetParentContext().(gctx.Context); ok {
+	if parentCtx, ok := ctx.GetParentContext().(corectx.Context); ok {
 		parentCtx.GetWaitGroup().Done()
 	}
 
-	close(gctx.UnsafeContext(ctx).GetTerminatedChan())
+	corectx.UnsafeContext(ctx).ReturnTerminated()
 }
 
-func (rt *RuntimeBehavior) changeRunningState(state runtime.RunningState) {
-	switch state {
-	case runtime.RunningState_Starting:
-		rt.initPlugin()
-	case runtime.RunningState_FrameLoopBegin:
-		runtime.UnsafeFrame(rt.opts.Frame).LoopBegin()
-	case runtime.RunningState_FrameUpdateBegin:
-		runtime.UnsafeFrame(rt.opts.Frame).UpdateBegin()
-	case runtime.RunningState_FrameUpdateEnd:
-		runtime.UnsafeFrame(rt.opts.Frame).UpdateEnd()
-	case runtime.RunningState_FrameLoopEnd:
-		runtime.UnsafeFrame(rt.opts.Frame).LoopEnd()
-	case runtime.RunningState_Terminated:
-		rt.shutPlugin()
+func (rt *RuntimeBehavior) emitEventRunningEvent(runningEvent runtime.RunningEvent, args ...any) {
+	runtime.UnsafeContext(rt.ctx).EmitEventRunningEvent(runningEvent, args...)
+}
+
+func (rt *RuntimeBehavior) onBeforeContextRunningEvent(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
+	switch runningEvent {
+	case runtime.RunningEvent_Birth:
+		if rt.options.AutoRun {
+			rt.getInstance().Run()
+		}
+	case runtime.RunningEvent_Starting:
+		rt.initComponentPT()
+		rt.initEntityPT()
+		rt.initAddIn()
+	case runtime.RunningEvent_FrameLoopBegin:
+		runtime.UnsafeFrame(rt.options.Frame).LoopBegin()
+	case runtime.RunningEvent_FrameUpdateBegin:
+		runtime.UnsafeFrame(rt.options.Frame).UpdateBegin()
+	case runtime.RunningEvent_FrameUpdateEnd:
+		runtime.UnsafeFrame(rt.options.Frame).UpdateEnd()
+	case runtime.RunningEvent_FrameLoopEnd:
+		runtime.UnsafeFrame(rt.options.Frame).LoopEnd()
 	}
-
-	runtime.UnsafeContext(rt.ctx).ChangeRunningState(state)
 }
 
-func (rt *RuntimeBehavior) initPlugin() {
-	pluginBundle := rt.ctx.GetPluginBundle()
-	if pluginBundle == nil {
+func (rt *RuntimeBehavior) onAfterContextRunningEvent(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
+	switch runningEvent {
+	case runtime.RunningEvent_Terminated:
+		rt.shutAddIn()
+		rt.shutEntityPT()
+		rt.shutComponentPT()
+	}
+}
+
+func (rt *RuntimeBehavior) initEntityPT() {
+	rt.managedEntityLibHandles[0] = pt.BindEventEntityLibDeclareEntityPT(rt.ctx.GetEntityLib(), pt.HandleEventEntityLibDeclareEntityPT(rt.onEntityLibDeclareEntityPT))
+
+	for _, entityPT := range rt.ctx.GetEntityLib().List() {
+		rt.emitEventRunningEvent(runtime.RunningEvent_EntityPTDeclared, entityPT)
+	}
+}
+
+func (rt *RuntimeBehavior) shutEntityPT() {
+	event.UnbindHandles(rt.managedEntityLibHandles[:])
+}
+
+func (rt *RuntimeBehavior) initComponentPT() {
+	rt.managedComponentLibHandles[0] = pt.BindEventComponentLibDeclareComponentPT(rt.ctx.GetEntityLib().GetComponentLib(), pt.HandleEventComponentLibDeclareComponentPT(rt.onComponentLibDeclareComponentPT))
+
+	for _, compPT := range rt.ctx.GetEntityLib().GetComponentLib().List() {
+		rt.emitEventRunningEvent(runtime.RunningEvent_ComponentPTDeclared, compPT)
+	}
+}
+
+func (rt *RuntimeBehavior) shutComponentPT() {
+	event.UnbindHandles(rt.managedComponentLibHandles[:])
+}
+
+func (rt *RuntimeBehavior) onEntityLibDeclareEntityPT(entityPT ec.EntityPT) {
+	rt.emitEventRunningEvent(runtime.RunningEvent_EntityPTDeclared, entityPT)
+}
+
+func (rt *RuntimeBehavior) onComponentLibDeclareComponentPT(compPT ec.ComponentPT) {
+	rt.emitEventRunningEvent(runtime.RunningEvent_ComponentPTDeclared, compPT)
+}
+
+func (rt *RuntimeBehavior) initAddIn() {
+	addInManager := runtime.UnsafeContext(rt.ctx).GetAddInManager()
+
+	rt.managedAddInManagerHandles[0] = extension.BindEventRuntimeInstallAddIn(addInManager, extension.HandleEventRuntimeInstallAddIn(rt.activateAddIn))
+	rt.managedAddInManagerHandles[1] = extension.BindEventRuntimeUninstallAddIn(addInManager, extension.HandleEventRuntimeUninstallAddIn(rt.deactivateAddIn))
+
+	addInStatusList := addInManager.List()
+	for i := range addInStatusList {
+		rt.activateAddIn(addInStatusList[i])
+	}
+}
+
+func (rt *RuntimeBehavior) shutAddIn() {
+	addInManager := runtime.UnsafeContext(rt.ctx).GetAddInManager()
+
+	event.UnbindHandles(rt.managedAddInManagerHandles[:])
+
+	addInStatusList := addInManager.List()
+	for i := len(addInStatusList) - 1; i >= 0; i-- {
+		addInStatusList[i].Uninstall()
+	}
+}
+
+func (rt *RuntimeBehavior) activateAddIn(status extension.AddInStatus) {
+	if status.State() != extension.AddInState_Loaded {
 		return
 	}
 
-	plugin.UnsafePluginBundle(pluginBundle).SetInstallCB(rt.activatePlugin)
-	plugin.UnsafePluginBundle(pluginBundle).SetUninstallCB(rt.deactivatePlugin)
+	rt.emitEventRunningEvent(runtime.RunningEvent_AddInActivating, status)
 
-	pluginBundle.Range(func(pluginInfo plugin.PluginInfo) bool {
-		rt.activatePlugin(pluginInfo)
-		return true
-	})
-}
-
-func (rt *RuntimeBehavior) shutPlugin() {
-	pluginBundle := rt.ctx.GetPluginBundle()
-	if pluginBundle == nil {
+	if status.State() != extension.AddInState_Loaded {
+		rt.emitEventRunningEvent(runtime.RunningEvent_AddInActivatingAborted, status)
 		return
 	}
 
-	plugin.UnsafePluginBundle(pluginBundle).SetInstallCB(nil)
-	plugin.UnsafePluginBundle(pluginBundle).SetUninstallCB(nil)
-
-	pluginBundle.ReversedRange(func(pluginInfo plugin.PluginInfo) bool {
-		rt.deactivatePlugin(pluginInfo)
-		return true
-	})
-}
-
-func (rt *RuntimeBehavior) activatePlugin(pluginInfo plugin.PluginInfo) {
-	if pluginInit, ok := pluginInfo.Face.Iface.(LifecyclePluginInit); ok {
-		generic.MakeAction1(pluginInit.InitP).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError(), rt.ctx)
+	if cb, ok := status.InstanceFace().Iface.(LifecycleRuntimeAddInInit); ok {
+		generic.CastAction1(cb.Init).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError(), rt.ctx)
 	}
-	plugin.UnsafePluginBundle(rt.ctx.GetPluginBundle()).SetActive(pluginInfo.Name, true)
-}
 
-func (rt *RuntimeBehavior) deactivatePlugin(pluginInfo plugin.PluginInfo) {
-	plugin.UnsafePluginBundle(rt.ctx.GetPluginBundle()).SetActive(pluginInfo.Name, false)
-	if pluginShut, ok := pluginInfo.Face.Iface.(LifecyclePluginShut); ok {
-		generic.MakeAction1(pluginShut.ShutP).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError(), rt.ctx)
+	if status.State() != extension.AddInState_Loaded {
+		rt.emitEventRunningEvent(runtime.RunningEvent_AddInActivatingAborted, status)
+		return
+	}
+
+	addInStatus := status.(extension.RuntimeAddInStatus)
+	extension.UnsafeRuntimeAddInStatus(addInStatus).SetState(extension.AddInState_Running)
+
+	rt.emitEventRunningEvent(runtime.RunningEvent_AddInActivatingDone, status)
+
+	if status.State() != extension.AddInState_Running {
+		return
+	}
+
+	if cb, ok := status.InstanceFace().Iface.(LifecycleAddInOnRuntimeRunningEvent); ok {
+		extension.UnsafeRuntimeAddInStatus(addInStatus).ManagedRuntimeRunningEventHandle(
+			runtime.BindEventContextRunningEvent(rt.ctx, runtime.HandleEventContextRunningEvent(cb.OnContextRunningEvent)),
+		)
 	}
 }
 
-func (rt *RuntimeBehavior) loopStart() (hooks [5]event.Hook) {
+func (rt *RuntimeBehavior) deactivateAddIn(status extension.AddInStatus) {
+	if status.State() != extension.AddInState_Running {
+		return
+	}
+
+	rt.emitEventRunningEvent(runtime.RunningEvent_AddInDeactivating, status)
+
+	if cb, ok := status.InstanceFace().Iface.(LifecycleRuntimeAddInShut); ok {
+		generic.CastAction1(cb.Shut).Call(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError(), rt.ctx)
+	}
+
+	rt.emitEventRunningEvent(runtime.RunningEvent_AddInDeactivatingDone, status)
+}
+
+func (rt *RuntimeBehavior) loopStart() []event.Handle {
 	ctx := rt.ctx
-	frame := rt.opts.Frame
+	frame := rt.options.Frame
 
 	if frame != nil {
 		runtime.UnsafeFrame(frame).RunningBegin()
 	}
 
-	hooks[0] = runtime.BindEventEntityMgrAddEntity(ctx.GetEntityMgr(), rt)
-	hooks[1] = runtime.BindEventEntityMgrRemoveEntity(ctx.GetEntityMgr(), rt)
-	hooks[2] = runtime.BindEventEntityMgrEntityAddComponents(ctx.GetEntityMgr(), rt)
-	hooks[3] = runtime.BindEventEntityMgrEntityRemoveComponent(ctx.GetEntityMgr(), rt)
-	hooks[4] = runtime.BindEventEntityMgrEntityFirstAccessComponent(ctx.GetEntityMgr(), rt)
-
-	return
+	return []event.Handle{
+		runtime.BindEventEntityManagerAddEntity(ctx.GetEntityManager(), rt.handleEventEntityManagerAddEntity),
+		runtime.BindEventEntityManagerRemoveEntity(ctx.GetEntityManager(), rt.handleEventEntityManagerRemoveEntity),
+		runtime.BindEventEntityManagerEntityAddComponents(ctx.GetEntityManager(), rt.handleEventEntityManagerEntityAddComponents),
+		runtime.BindEventEntityManagerEntityRemoveComponent(ctx.GetEntityManager(), rt.handleEventEntityManagerEntityRemoveComponent),
+		runtime.BindEventEntityManagerEntityComponentEnableChanged(ctx.GetEntityManager(), rt.handleEventEntityManagerEntityComponentEnableChanged),
+		runtime.BindEventEntityManagerEntityFirstTouchComponent(ctx.GetEntityManager(), rt.handleEventEntityManagerEntityFirstTouchComponent),
+	}
 }
 
-func (rt *RuntimeBehavior) loopStop(hooks [5]event.Hook) {
-	frame := rt.opts.Frame
+func (rt *RuntimeBehavior) loopStop(handles []event.Handle) {
+	frame := rt.options.Frame
 
-	event.Clean(hooks[:])
+	event.UnbindHandles(handles)
 
 	if frame != nil {
 		runtime.UnsafeFrame(frame).RunningEnd()
@@ -305,7 +392,7 @@ func (rt *RuntimeBehavior) loopStop(hooks [5]event.Hook) {
 }
 
 func (rt *RuntimeBehavior) mainLoop() {
-	frame := rt.opts.Frame
+	frame := rt.options.Frame
 
 	if frame == nil {
 		rt.loopingNoFrame()
@@ -324,16 +411,16 @@ func (rt *RuntimeBehavior) mainLoop() {
 func (rt *RuntimeBehavior) runTask(task _Task) {
 	switch task.typ {
 	case _TaskType_Call:
-		rt.changeRunningState(runtime.RunningState_RunCallBegin)
+		rt.emitEventRunningEvent(runtime.RunningEvent_RunCallBegin)
 		task.run(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError())
-		rt.changeRunningState(runtime.RunningState_RunCallEnd)
+		rt.emitEventRunningEvent(runtime.RunningEvent_RunCallEnd)
 	case _TaskType_Frame:
 		task.run(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError())
 	}
 }
 
 func (rt *RuntimeBehavior) runGC() {
-	rt.changeRunningState(runtime.RunningState_RunGCBegin)
+	rt.emitEventRunningEvent(runtime.RunningEvent_RunGCBegin)
 	rt.gc()
-	rt.changeRunningState(runtime.RunningState_RunGCEnd)
+	rt.emitEventRunningEvent(runtime.RunningEvent_RunGCEnd)
 }

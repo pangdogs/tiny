@@ -1,26 +1,44 @@
+/*
+ * This file is part of Golaxy Distributed Service Development Framework.
+ *
+ * Golaxy Distributed Service Development Framework is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 2.1 of the License, or
+ * (at your option) any later version.
+ *
+ * Golaxy Distributed Service Development Framework is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Golaxy Distributed Service Development Framework. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Copyright (c) 2024 pangdogs.
+ */
+
 package runtime
 
 import (
-	"fmt"
-	"git.golaxy.org/tiny/internal/gctx"
+	"git.golaxy.org/core/utils/corectx"
+	"git.golaxy.org/core/utils/iface"
 	"git.golaxy.org/tiny/utils/exception"
-	"git.golaxy.org/tiny/utils/iface"
 )
 
 // CurrentContextProvider 当前上下文提供者
-type CurrentContextProvider = gctx.CurrentContextProvider
+type CurrentContextProvider = corectx.CurrentContextProvider
 
 // Current 获取当前运行时上下文
-func Current(provider gctx.CurrentContextProvider) Context {
+func Current(provider corectx.CurrentContextProvider) Context {
 	if provider == nil {
-		panic(fmt.Errorf("%w: %w: provider is nil", ErrContext, exception.ErrArgs))
+		exception.Panicf("%w: %w: provider is nil", ErrContext, exception.ErrArgs)
 	}
 	return iface.Cache2Iface[Context](provider.GetCurrentContext())
 }
 
-func getRuntimeContext(provider gctx.CurrentContextProvider) Context {
+func getRuntimeContext(provider corectx.CurrentContextProvider) Context {
 	if provider == nil {
-		panic(fmt.Errorf("%w: %w: provider is nil", ErrContext, exception.ErrArgs))
+		exception.Panicf("%w: %w: provider is nil", ErrContext, exception.ErrArgs)
 	}
 	return iface.Cache2Iface[Context](provider.GetCurrentContext())
 }

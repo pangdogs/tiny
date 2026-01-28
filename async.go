@@ -1,136 +1,140 @@
+/*
+ * This file is part of Golaxy Distributed Service Development Framework.
+ *
+ * Golaxy Distributed Service Development Framework is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 2.1 of the License, or
+ * (at your option) any later version.
+ *
+ * Golaxy Distributed Service Development Framework is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Golaxy Distributed Service Development Framework. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Copyright (c) 2024 pangdogs.
+ */
+
 package tiny
 
 import (
 	"context"
-	"fmt"
-	"git.golaxy.org/tiny/internal/gctx"
-	"git.golaxy.org/tiny/runtime"
-	"git.golaxy.org/tiny/utils/async"
-	"git.golaxy.org/tiny/utils/generic"
 	"time"
-	_ "unsafe"
+
+	"git.golaxy.org/core/utils/async"
+	"git.golaxy.org/core/utils/corectx"
+	"git.golaxy.org/core/utils/generic"
+	"git.golaxy.org/tiny/runtime"
+	"git.golaxy.org/tiny/utils/exception"
 )
 
-//go:linkname getCaller git.golaxy.org/tiny/runtime.getCaller
-func getCaller(provider gctx.ConcurrentContextProvider) async.Caller
-
-// Async 异步执行代码，有返回值
-func Async(provider gctx.ConcurrentContextProvider, fun generic.FuncVar1[runtime.Context, any, async.Ret], va ...any) async.AsyncRet {
-	ctx := getCaller(provider)
-	return ctx.Call(func(va ...any) async.Ret {
-		ctx := va[0].(runtime.Context)
-		fun := va[1].(generic.FuncVar1[runtime.Context, any, async.Ret])
-		funVa := va[2].([]any)
-		return fun.Exec(ctx, funVa...)
-	}, ctx, fun, va)
+// CallAsync 异步执行代码，有返回值
+func CallAsync(provider corectx.ConcurrentContextProvider, fun generic.FuncVar1[runtime.Context, any, async.Ret], args ...any) async.AsyncRet {
+	ctx := runtime.UnsafeConcurrentContext(runtime.Concurrent(provider)).GetContext()
+	return ctx.CallAsync(func(...any) async.Ret { return fun.UnsafeCall(ctx, args...) })
 }
 
-// AsyncVoid 异步执行代码，无返回值
-func AsyncVoid(provider gctx.ConcurrentContextProvider, fun generic.ActionVar1[runtime.Context, any], va ...any) async.AsyncRet {
-	ctx := getCaller(provider)
-	return ctx.CallVoid(func(va ...any) {
-		ctx := va[0].(runtime.Context)
-		fun := va[1].(generic.ActionVar1[runtime.Context, any])
-		funVa := va[2].([]any)
-		fun.Exec(ctx, funVa...)
-	}, ctx, fun, va)
+// CallVoidAsync 异步执行代码，无返回值
+func CallVoidAsync(provider corectx.ConcurrentContextProvider, fun generic.ActionVar1[runtime.Context, any], args ...any) async.AsyncRet {
+	ctx := runtime.UnsafeConcurrentContext(runtime.Concurrent(provider)).GetContext()
+	return ctx.CallVoidAsync(func(...any) { fun.UnsafeCall(ctx, args...) })
 }
 
-// Go 使用新线程执行代码，有返回值
-func Go(ctx context.Context, fun generic.FuncVar1[context.Context, any, async.Ret], va ...any) async.AsyncRet {
+// GoAsync 使用新线程执行代码，有返回值
+func GoAsync(ctx context.Context, fun generic.FuncVar1[context.Context, any, async.Ret], args ...any) async.AsyncRet {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
 	asyncRet := async.MakeAsyncRet()
 
-	go func(fun generic.FuncVar1[context.Context, any, async.Ret], ctx context.Context, va []any, asyncRet chan async.Ret) {
-		ret, panicErr := fun.Invoke(ctx, va...)
+	go func() {
+		ret, panicErr := fun.SafeCall(ctx, args...)
 		if panicErr != nil {
 			ret.Error = panicErr
 		}
-		asyncRet <- ret
-		close(asyncRet)
-	}(fun, ctx, va, asyncRet)
+		async.Return(asyncRet, ret)
+	}()
 
 	return asyncRet
 }
 
-// GoVoid 使用新线程执行代码，无返回值
-func GoVoid(ctx context.Context, fun generic.ActionVar1[context.Context, any], va ...any) async.AsyncRet {
+// GoVoidAsync 使用新线程执行代码，无返回值
+func GoVoidAsync(ctx context.Context, fun generic.ActionVar1[context.Context, any], args ...any) async.AsyncRet {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
 	asyncRet := async.MakeAsyncRet()
 
-	go func(fun generic.ActionVar1[context.Context, any], ctx context.Context, va []any, asyncRet chan async.Ret) {
-		asyncRet <- async.MakeRet(nil, fun.Invoke(ctx, va...))
-		close(asyncRet)
-	}(fun, ctx, va, asyncRet)
+	go func() {
+		async.Return(asyncRet, async.MakeRet(nil, fun.SafeCall(ctx, args...)))
+	}()
 
 	return asyncRet
 }
 
-// TimeAfter 定时器，指定时长
-func TimeAfter(ctx context.Context, dur time.Duration) async.AsyncRet {
+// TimeAfterAsync 定时器，指定时长
+func TimeAfterAsync(ctx context.Context, dur time.Duration) async.AsyncRet {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
 	asyncRet := async.MakeAsyncRet()
 
-	go func(ctx context.Context, dur time.Duration, asyncRet chan async.Ret) {
+	go func() {
 		timer := time.NewTimer(dur)
 		defer timer.Stop()
 
 		select {
 		case <-timer.C:
-			asyncRet <- async.VoidRet
+			async.YieldReturn(ctx, asyncRet, async.VoidRet)
 		case <-ctx.Done():
 			break
 		}
 
-		close(asyncRet)
-	}(ctx, dur, asyncRet)
+		async.YieldBreak(asyncRet)
+	}()
 
 	return asyncRet
 }
 
-// TimeAt 定时器，指定时间点
-func TimeAt(ctx context.Context, at time.Time) async.AsyncRet {
+// TimeAtAsync 定时器，指定时间点
+func TimeAtAsync(ctx context.Context, at time.Time) async.AsyncRet {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
 	asyncRet := async.MakeAsyncRet()
 
-	go func(ctx context.Context, at time.Time, asyncRet chan async.Ret) {
+	go func() {
 		timer := time.NewTimer(time.Until(at))
 		defer timer.Stop()
 
 		select {
 		case <-timer.C:
-			asyncRet <- async.VoidRet
+			async.YieldReturn(ctx, asyncRet, async.VoidRet)
 		case <-ctx.Done():
 			break
 		}
 
-		close(asyncRet)
-	}(ctx, at, asyncRet)
+		async.YieldBreak(asyncRet)
+	}()
 
 	return asyncRet
 }
 
-// TimeTick 心跳器
-func TimeTick(ctx context.Context, dur time.Duration) async.AsyncRet {
+// TimeTickAsync 心跳器
+func TimeTickAsync(ctx context.Context, dur time.Duration) async.AsyncRet {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
 	asyncRet := async.MakeAsyncRet()
 
-	go func(ctx context.Context, dur time.Duration, asyncRet chan async.Ret) {
+	go func() {
 		tick := time.NewTicker(dur)
 		defer tick.Stop()
 
@@ -138,9 +142,7 @@ func TimeTick(ctx context.Context, dur time.Duration) async.AsyncRet {
 		for {
 			select {
 			case <-tick.C:
-				select {
-				case asyncRet <- async.VoidRet:
-				case <-ctx.Done():
+				if !async.YieldReturn(ctx, asyncRet, async.VoidRet) {
 					break loop
 				}
 			case <-ctx.Done():
@@ -148,25 +150,30 @@ func TimeTick(ctx context.Context, dur time.Duration) async.AsyncRet {
 			}
 		}
 
-		close(asyncRet)
-	}(ctx, dur, asyncRet)
+		async.YieldBreak(asyncRet)
+	}()
 
 	return asyncRet
 }
 
-// ReadChan 读取channel
-func ReadChan[T any](ctx context.Context, ch <-chan T) async.AsyncRet {
+// ReadChanAsync 读取channel转换为AsyncRet
+func ReadChanAsync(ctx context.Context, ch <-chan any) async.AsyncRet {
+	return ReadChanAsyncT[any](ctx, ch)
+}
+
+// ReadChanAsyncT 读取channel转换为AsyncRet
+func ReadChanAsyncT[T any](ctx context.Context, ch <-chan T) async.AsyncRet {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
 	if ch == nil {
-		panic(fmt.Errorf("%w: %w: ch is nil", ErrTiny, ErrArgs))
+		exception.Panicf("%w: %w: ch is nil", ErrTiny, ErrArgs)
 	}
 
 	asyncRet := async.MakeAsyncRet()
 
-	go func(ctx context.Context, ch <-chan T, asyncRet chan async.Ret) {
+	go func() {
 	loop:
 		for {
 			select {
@@ -174,17 +181,15 @@ func ReadChan[T any](ctx context.Context, ch <-chan T) async.AsyncRet {
 				if !ok {
 					break loop
 				}
-				select {
-				case asyncRet <- async.MakeRet(v, nil):
-				case <-ctx.Done():
+				if !async.YieldReturn(ctx, asyncRet, async.MakeRet(v, nil)) {
 					break loop
 				}
 			case <-ctx.Done():
 				break loop
 			}
 		}
-		close(asyncRet)
-	}(ctx, ch, asyncRet)
+		async.YieldBreak(asyncRet)
+	}()
 
 	return asyncRet
 }
