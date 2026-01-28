@@ -111,6 +111,7 @@ type EntityBehavior struct {
 	terminate             context.CancelFunc
 	terminated            chan async.Ret
 	options               EntityOptions
+	id                    uid.Id
 	prototype             EntityPT
 	context               iface.Cache
 	componentNameIndex    generic.SliceMap[string, int]
@@ -134,7 +135,7 @@ type EntityBehavior struct {
 
 // GetId 获取实体Id
 func (entity *EntityBehavior) GetId() uid.Id {
-	return entity.options.PersistId
+	return entity.id
 }
 
 // GetPT 获取实体原型
@@ -225,7 +226,7 @@ func (entity *EntityBehavior) getOptions() *EntityOptions {
 }
 
 func (entity *EntityBehavior) setId(id uid.Id) {
-	entity.options.PersistId = id
+	entity.id = id
 }
 
 func (entity *EntityBehavior) setPT(prototype EntityPT) {

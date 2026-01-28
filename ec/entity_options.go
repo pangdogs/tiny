@@ -23,13 +23,11 @@ import (
 	"git.golaxy.org/core/utils/iface"
 	"git.golaxy.org/core/utils/meta"
 	"git.golaxy.org/core/utils/option"
-	"git.golaxy.org/tiny/utils/uid"
 )
 
 // EntityOptions 创建实体的所有选项
 type EntityOptions struct {
 	InstanceFace               iface.Face[Entity] // 实例，用于扩展实体能力
-	PersistId                  uid.Id             // 实体持久化Id
 	ComponentAwakeOnFirstTouch bool               // 当实体组件首次被访问时，生命周期是否进入唤醒（Awake）
 	Meta                       meta.Meta          // Meta信息
 }
@@ -42,7 +40,6 @@ type _Option struct{}
 func (_Option) Default() option.Setting[EntityOptions] {
 	return func(options *EntityOptions) {
 		With.InstanceFace(iface.Face[Entity]{}).Apply(options)
-		With.PersistId(uid.Nil).Apply(options)
 		With.ComponentAwakeOnFirstTouch(false).Apply(options)
 		With.Meta(nil).Apply(options)
 	}
@@ -52,13 +49,6 @@ func (_Option) Default() option.Setting[EntityOptions] {
 func (_Option) InstanceFace(face iface.Face[Entity]) option.Setting[EntityOptions] {
 	return func(options *EntityOptions) {
 		options.InstanceFace = face
-	}
-}
-
-// PersistId 实体持久化Id
-func (_Option) PersistId(id uid.Id) option.Setting[EntityOptions] {
-	return func(options *EntityOptions) {
-		options.PersistId = id
 	}
 }
 

@@ -63,12 +63,6 @@ func (c *EntityCreator) SetInstance(instance ec.Entity) *EntityCreator {
 	return c
 }
 
-// SetPersistId 设置实体持久化Id
-func (c *EntityCreator) SetPersistId(id uid.Id) *EntityCreator {
-	c.settings = append(c.settings, ec.With.PersistId(id))
-	return c
-}
-
 // SetComponentAwakeOnFirstTouch 设置当实体组件首次被访问时，生命周期是否进入唤醒（Awake）
 func (c *EntityCreator) SetComponentAwakeOnFirstTouch(b bool) *EntityCreator {
 	c.settings = append(c.settings, ec.With.ComponentAwakeOnFirstTouch(b))
