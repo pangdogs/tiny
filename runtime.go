@@ -121,14 +121,14 @@ func (rt *RuntimeBehavior) init(rtCtx runtime.Context, options RuntimeOptions) {
 
 	frame := rt.options.Frame
 
-	switch frame.GetMode() {
-	case runtime.FrameMode_Manual:
-		rt.ctrlChan = make(chan _Ctrl)
-	}
-
 	if frame == nil {
 		rt.taskQueue = make(chan _Task, rt.options.TaskQueueCapacity)
 	} else {
+		switch frame.GetMode() {
+		case runtime.FrameMode_Manual:
+			rt.ctrlChan = make(chan _Ctrl)
+		}
+
 		switch frame.GetMode() {
 		case runtime.FrameMode_Manual, runtime.FrameMode_RealTime:
 			rt.taskQueue = make(chan _Task, rt.options.TaskQueueCapacity)
