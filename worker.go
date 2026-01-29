@@ -20,6 +20,7 @@
 package tiny
 
 import (
+	"context"
 	"time"
 
 	"git.golaxy.org/core/utils/async"
@@ -30,18 +31,18 @@ import (
 type iWorker interface {
 	// Run 运行
 	Run() async.AsyncRet
-	// Play 播放指定时长
-	Play(delta time.Duration) error
-	// PlayAt 播放至指定位置
-	PlayAt(at time.Duration) error
-	// PlayFrames 播放指定帧数
-	PlayFrames(delta int64) error
-	// PlayAtFrames 播放至指定帧数
-	PlayAtFrames(at int64) error
-	// PlayAtFunc 播放至函数指定位置
-	PlayAtFunc(fun generic.Func1[runtime.Context, bool]) error
 	// Terminate 停止
 	Terminate() async.AsyncRet
 	// Terminated 已停止
 	Terminated() async.AsyncRet
+	// Play 播放指定时长
+	Play(ctx context.Context, delta time.Duration) error
+	// PlayAt 播放至指定位置
+	PlayAt(ctx context.Context, at time.Duration) error
+	// PlayFrames 播放指定帧数
+	PlayFrames(ctx context.Context, delta int64) error
+	// PlayFramesAt 播放至指定帧数
+	PlayFramesAt(ctx context.Context, at int64) error
+	// PlayIfContinue 指定函数判断是否继续播放
+	PlayIfContinue(ctx context.Context, continueFunc generic.Func1[runtime.Context, bool]) error
 }

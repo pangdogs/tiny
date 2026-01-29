@@ -30,9 +30,9 @@ import (
 type FrameMode int32
 
 const (
-	RealTime FrameMode = iota // 实时
-	Simulate                  // 瞬时模拟
-	Manual                    // 手动控制
+	FrameMode_RealTime FrameMode = iota // 实时
+	FrameMode_Simulate                  // 瞬时模拟
+	FrameMode_Manual                    // 手动控制
 )
 
 // FrameOptions 帧的所有选项
@@ -49,7 +49,7 @@ func (_FrameOption) Default() option.Setting[FrameOptions] {
 	return func(options *FrameOptions) {
 		With.Frame.TargetFPS(30).Apply(options)
 		With.Frame.TotalFrames(0).Apply(options)
-		With.Frame.Mode(RealTime).Apply(options)
+		With.Frame.Mode(FrameMode_RealTime).Apply(options)
 	}
 }
 

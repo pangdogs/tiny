@@ -32,20 +32,18 @@ loop:
 
 	pause:
 		switch curCtrl.mode {
-		case _NoCtrl:
+		case _CtrlMode_Pending:
 			for {
 				select {
 				case ctrl := <-rt.ctrlChan:
-					curCtrl = ctrl
-
-					if curCtrl.mode == _FrameDelta {
-						curCtrl.mode = _FrameAt
-						curCtrl.frames += curFrames
+					if ctrl.mode == _CtrlMode_FrameDelta {
+						ctrl.mode = _CtrlMode_FrameAt
+						ctrl.frames += curFrames
 					}
-
+					curCtrl = ctrl
 					goto pause
 
-				case task, ok := <-rt.processQueue:
+				case task, ok := <-rt.taskQueue:
 					if !ok {
 						break loop
 					}
@@ -55,13 +53,13 @@ loop:
 					break loop
 				}
 			}
-		case _FrameAt:
+		case _CtrlMode_FrameAt:
 			if curFrames >= curCtrl.frames {
 				curCtrl = _Ctrl{}
 				goto pause
 			}
-		case _FuncAt:
-			if curCtrl.fun.UnsafeCall(rt.ctx) {
+		case _CtrlMode_IfContinue:
+			if !curCtrl.continueFunc.UnsafeCall(rt.ctx) {
 				curCtrl = _Ctrl{}
 				goto pause
 			}
@@ -71,12 +69,12 @@ loop:
 	}
 
 	close(rt.ctrlChan)
-	close(rt.processQueue)
+	close(rt.taskQueue)
 
 loopEnding:
 	for {
 		select {
-		case task, ok := <-rt.processQueue:
+		case task, ok := <-rt.taskQueue:
 			if !ok {
 				break loopEnding
 			}

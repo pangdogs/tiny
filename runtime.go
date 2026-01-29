@@ -74,7 +74,7 @@ type RuntimeBehavior struct {
 	options                                              RuntimeOptions
 	isRunning                                            atomic.Bool
 	ctrlChan                                             chan _Ctrl
-	processQueue                                         chan _Task
+	taskQueue                                            chan _Task
 	handleEventEntityManagerAddEntity                    runtime.EventEntityManagerAddEntity
 	handleEventEntityManagerRemoveEntity                 runtime.EventEntityManagerRemoveEntity
 	handleEventEntityManagerEntityAddComponents          runtime.EventEntityManagerEntityAddComponents
@@ -119,13 +119,23 @@ func (rt *RuntimeBehavior) init(rtCtx runtime.Context, options RuntimeOptions) {
 		rt.options.InstanceFace = iface.MakeFaceT[Runtime](rt)
 	}
 
-	if rt.options.Frame != nil && rt.options.Frame.GetMode() == runtime.Manual {
+	frame := rt.options.Frame
+
+	switch frame.GetMode() {
+	case runtime.FrameMode_Manual:
 		rt.ctrlChan = make(chan _Ctrl)
 	}
 
-	rt.processQueue = make(chan _Task, rt.options.ProcessQueueCapacity)
+	if frame == nil {
+		rt.taskQueue = make(chan _Task, rt.options.TaskQueueCapacity)
+	} else {
+		switch frame.GetMode() {
+		case runtime.FrameMode_Manual, runtime.FrameMode_RealTime:
+			rt.taskQueue = make(chan _Task, rt.options.TaskQueueCapacity)
+		}
+	}
 
-	runtime.UnsafeContext(rtCtx).SetFrame(rt.options.Frame)
+	runtime.UnsafeContext(rtCtx).SetFrame(frame)
 	runtime.UnsafeContext(rtCtx).SetCallee(rt.getInstance())
 
 	rt.runtimeEventTab.SetPanicHandling(rtCtx.GetAutoRecover(), rtCtx.GetReportError())

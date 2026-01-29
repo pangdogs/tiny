@@ -1,10 +1,6 @@
 package tiny
 
 import (
-	"context"
-	"fmt"
-	"time"
-
 	"git.golaxy.org/core/event"
 	"git.golaxy.org/core/extension"
 	"git.golaxy.org/core/utils/async"
@@ -16,32 +12,13 @@ import (
 	"git.golaxy.org/tiny/utils/exception"
 )
 
-var (
-	ErrCtrlChanClosed = fmt.Errorf("%w: ctrl chan is closed", ErrRuntime) // 运行控制已关闭
-)
-
-type _CtrlMode int32
-
-const (
-	_NoCtrl _CtrlMode = iota
-	_FrameDelta
-	_FrameAt
-	_FuncAt
-)
-
-type _Ctrl struct {
-	mode   _CtrlMode
-	frames int64
-	fun    generic.Func1[runtime.Context, bool]
-}
-
 // Run 运行
 func (rt *RuntimeBehavior) Run() async.AsyncRet {
 	ctx := rt.ctx
 
 	select {
 	case <-ctx.Done():
-		exception.Panicf("%w: %w", ErrRuntime, context.Canceled)
+		exception.Panicf("%w: %w", ErrRuntime, ctx.Err())
 	case <-ctx.Terminated():
 		exception.Panicf("%w: terminated", ErrRuntime)
 	default:
@@ -58,134 +35,6 @@ func (rt *RuntimeBehavior) Run() async.AsyncRet {
 	go rt.running()
 
 	return ctx.Terminated()
-}
-
-// Play 播放指定时长
-func (rt *RuntimeBehavior) Play(delta time.Duration) (err error) {
-	frame := rt.options.Frame
-
-	if frame == nil || frame.GetMode() != runtime.Manual {
-		return ErrCtrlChanClosed
-	}
-
-	defer func() {
-		if panicInfo := recover(); panicInfo != nil {
-			err = ErrCtrlChanClosed
-		}
-	}()
-
-	frames := int64(delta.Seconds() * frame.GetTargetFPS())
-	if frames <= 0 {
-		return nil
-	}
-
-	rt.ctrlChan <- _Ctrl{
-		mode:   _FrameDelta,
-		frames: frames,
-	}
-
-	return nil
-}
-
-// PlayAt 播放至指定位置
-func (rt *RuntimeBehavior) PlayAt(at time.Duration) (err error) {
-	frame := rt.options.Frame
-
-	if frame == nil || frame.GetMode() != runtime.Manual {
-		return ErrCtrlChanClosed
-	}
-
-	defer func() {
-		if panicInfo := recover(); panicInfo != nil {
-			err = ErrCtrlChanClosed
-		}
-	}()
-
-	frames := int64(at.Seconds() * frame.GetTargetFPS())
-	if frames <= 0 {
-		return nil
-	}
-
-	rt.ctrlChan <- _Ctrl{
-		mode:   _FrameAt,
-		frames: frames,
-	}
-
-	return nil
-}
-
-// PlayFrames 播放指定帧数
-func (rt *RuntimeBehavior) PlayFrames(delta int64) (err error) {
-	frame := rt.options.Frame
-
-	if frame == nil || frame.GetMode() != runtime.Manual {
-		return ErrCtrlChanClosed
-	}
-
-	defer func() {
-		if panicInfo := recover(); panicInfo != nil {
-			err = ErrCtrlChanClosed
-		}
-	}()
-
-	if delta <= 0 {
-		return nil
-	}
-
-	rt.ctrlChan <- _Ctrl{
-		mode:   _FrameDelta,
-		frames: delta,
-	}
-
-	return nil
-}
-
-// PlayAtFrames 播放至指定帧数
-func (rt *RuntimeBehavior) PlayAtFrames(at int64) (err error) {
-	frame := rt.options.Frame
-
-	if frame == nil || frame.GetMode() != runtime.Manual {
-		return ErrCtrlChanClosed
-	}
-
-	defer func() {
-		if panicInfo := recover(); panicInfo != nil {
-			err = ErrCtrlChanClosed
-		}
-	}()
-
-	if at <= 0 {
-		return nil
-	}
-
-	rt.ctrlChan <- _Ctrl{
-		mode:   _FrameAt,
-		frames: at,
-	}
-
-	return nil
-}
-
-// PlayAtFunc 播放至函数指定位置
-func (rt *RuntimeBehavior) PlayAtFunc(fun generic.Func1[runtime.Context, bool]) (err error) {
-	frame := rt.options.Frame
-
-	if frame == nil || frame.GetMode() != runtime.Manual {
-		return ErrCtrlChanClosed
-	}
-
-	defer func() {
-		if panicInfo := recover(); panicInfo != nil {
-			err = ErrCtrlChanClosed
-		}
-	}()
-
-	rt.ctrlChan <- _Ctrl{
-		mode: _FuncAt,
-		fun:  fun,
-	}
-
-	return nil
 }
 
 // Terminate 停止
@@ -400,9 +249,9 @@ func (rt *RuntimeBehavior) mainLoop() {
 		rt.loopingNoFrame()
 	} else {
 		switch frame.GetMode() {
-		case runtime.Simulate:
+		case runtime.FrameMode_Simulate:
 			rt.loopingSimulate()
-		case runtime.Manual:
+		case runtime.FrameMode_Manual:
 			rt.loopingManual()
 		default:
 			rt.loopingRealTime()

@@ -167,7 +167,7 @@ func (frame *_FrameBehavior) runningBegin() {
 	frame.lastUpdateElapseTime = 0
 
 	switch frame.options.Mode {
-	case Simulate, Manual:
+	case FrameMode_Simulate, FrameMode_Manual:
 		frame.fixedLoopElapseTime = time.Second / time.Duration(frame.options.TargetFPS)
 	}
 }
@@ -177,7 +177,7 @@ func (frame *_FrameBehavior) runningEnd() {
 
 func (frame *_FrameBehavior) loopBegin() {
 	switch frame.options.Mode {
-	case Simulate, Manual:
+	case FrameMode_Simulate, FrameMode_Manual:
 		frame.loopBeginTime = frame.runningBeginTime.Add(frame.fixedLoopElapseTime * time.Duration(frame.curFrames))
 
 	default:
@@ -194,7 +194,7 @@ func (frame *_FrameBehavior) loopBegin() {
 
 func (frame *_FrameBehavior) loopEnd() {
 	switch frame.options.Mode {
-	case Simulate, Manual:
+	case FrameMode_Simulate, FrameMode_Manual:
 		frame.lastLoopElapseTime = frame.fixedLoopElapseTime
 		frame.runningElapseTime += frame.fixedLoopElapseTime
 
@@ -207,7 +207,7 @@ func (frame *_FrameBehavior) loopEnd() {
 
 func (frame *_FrameBehavior) updateBegin() {
 	switch frame.options.Mode {
-	case Simulate, Manual:
+	case FrameMode_Simulate, FrameMode_Manual:
 		frame.updateBeginTime = frame.runningBeginTime.Add(frame.fixedLoopElapseTime * time.Duration(frame.curFrames))
 	default:
 		frame.updateBeginTime = time.Now()
@@ -216,7 +216,7 @@ func (frame *_FrameBehavior) updateBegin() {
 
 func (frame *_FrameBehavior) updateEnd() {
 	switch frame.options.Mode {
-	case Simulate, Manual:
+	case FrameMode_Simulate, FrameMode_Manual:
 		frame.lastUpdateElapseTime = frame.fixedLoopElapseTime
 	default:
 		frame.lastUpdateElapseTime = time.Now().Sub(frame.updateBeginTime)
