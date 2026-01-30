@@ -56,7 +56,7 @@ func (descr *EntityDescriptor) SetComponentAwakeOnFirstTouch(b bool) *EntityDesc
 }
 
 func (descr *EntityDescriptor) SetMeta(dict map[string]any) *EntityDescriptor {
-	descr.Meta = meta.M(dict)
+	descr.Meta = meta.NewVal(dict)
 	return descr
 }
 

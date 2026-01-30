@@ -36,7 +36,7 @@ import (
 
 // NewRuntime 创建运行时
 func NewRuntime(rtCtx runtime.Context, settings ...option.Setting[RuntimeOptions]) Runtime {
-	return UnsafeNewRuntime(rtCtx, option.Make(With.Default(), settings...))
+	return UnsafeNewRuntime(rtCtx, option.New(With.Default(), settings...))
 }
 
 // Deprecated: UnsafeNewRuntime 内部创建运行时
@@ -116,7 +116,7 @@ func (rt *RuntimeBehavior) init(rtCtx runtime.Context, options RuntimeOptions) {
 	rt.options = options
 
 	if rt.options.InstanceFace.IsNil() {
-		rt.options.InstanceFace = iface.MakeFaceT[Runtime](rt)
+		rt.options.InstanceFace = iface.NewFaceT[Runtime](rt)
 	}
 
 	frame := rt.options.Frame

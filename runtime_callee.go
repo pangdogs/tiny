@@ -65,15 +65,15 @@ func (rt *RuntimeBehavior) PushCallDelegateVoidAsync(fun generic.DelegateVoidVar
 
 func (rt *RuntimeBehavior) pushCallTask(task _Task) (asyncRet async.AsyncRet) {
 	task.typ = _TaskType_Call
-	task.asyncRet = async.MakeAsyncRet()
+	task.asyncRet = async.NewAsyncRet()
 
 	if rt.taskQueue == nil {
-		return async.Return(task.asyncRet, async.MakeRet(nil, ErrTaskQueueClosed))
+		return async.Return(task.asyncRet, async.NewRet(nil, ErrTaskQueueClosed))
 	}
 
 	defer func() {
 		if panicInfo := recover(); panicInfo != nil {
-			asyncRet = async.Return(task.asyncRet, async.MakeRet(nil, ErrTaskQueueClosed))
+			asyncRet = async.Return(task.asyncRet, async.NewRet(nil, ErrTaskQueueClosed))
 		}
 	}()
 
@@ -81,6 +81,6 @@ func (rt *RuntimeBehavior) pushCallTask(task _Task) (asyncRet async.AsyncRet) {
 	case rt.taskQueue <- task:
 		return task.asyncRet
 	default:
-		return async.Return(task.asyncRet, async.MakeRet(nil, ErrTaskQueueFull))
+		return async.Return(task.asyncRet, async.NewRet(nil, ErrTaskQueueFull))
 	}
 }

@@ -25,7 +25,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-	
+
 	"git.golaxy.org/core/define"
 	"git.golaxy.org/tiny"
 	"git.golaxy.org/tiny/ec"
