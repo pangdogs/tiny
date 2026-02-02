@@ -958,11 +958,7 @@ func NewRuntimeAddIn1(...any) *RuntimeAddIn1 {
 }
 
 var (
-	runtimeAddIn1Define    = define.AddIn(NewRuntimeAddIn1)
-	runtimeAddIn1Name      = runtimeAddIn1Define.Name
-	runtimeAddIn1Install   = runtimeAddIn1Define.Install
-	runtimeAddIn1Uninstall = runtimeAddIn1Define.Uninstall
-	runtimeAddIn1Using     = runtimeAddIn1Define.Using
+	runtimeAddIn1 = define.AddIn(NewRuntimeAddIn1)
 )
 
 func Test_RuntimeAddIn(t *testing.T) {
@@ -973,7 +969,7 @@ func Test_RuntimeAddIn(t *testing.T) {
 		runtime.With.Context.RunningEventCB(func(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
 			switch runningEvent {
 			case runtime.RunningEvent_Birth:
-				runtimeAddIn1Install(ctx)
+				runtimeAddIn1.Install(ctx)
 			}
 			log.Println("runtime event:", runningEvent, args)
 		}),
