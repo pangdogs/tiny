@@ -105,7 +105,7 @@ type ContextBehavior struct {
 	reflected     reflect.Value
 	uidGenerator  int64
 	frame         Frame
-	entityManager _EntityManagerBehavior
+	entityManager _EntityManager
 	callee        async.Callee
 	scoped        atomic.Bool
 	gcList        []GC

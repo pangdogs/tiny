@@ -25,7 +25,7 @@ import (
 	"git.golaxy.org/tiny/runtime"
 )
 
-type _FrameBehavior struct {
+type _Frame struct {
 	mode                 runtime.FrameMode
 	targetFPS            float64
 	totalFrames          int64
@@ -43,71 +43,71 @@ type _FrameBehavior struct {
 }
 
 // GetMode 获取帧模式
-func (frame *_FrameBehavior) GetMode() runtime.FrameMode {
+func (frame *_Frame) GetMode() runtime.FrameMode {
 	return frame.mode
 }
 
 // GetTargetFPS 获取目标FPS
-func (frame *_FrameBehavior) GetTargetFPS() float64 {
+func (frame *_Frame) GetTargetFPS() float64 {
 	return frame.targetFPS
 }
 
 // GetCurFPS 获取当前FPS
-func (frame *_FrameBehavior) GetCurFPS() float64 {
+func (frame *_Frame) GetCurFPS() float64 {
 	return frame.curFPS
 }
 
 // GetTotalFrames 获取运行帧数上限
-func (frame *_FrameBehavior) GetTotalFrames() int64 {
+func (frame *_Frame) GetTotalFrames() int64 {
 	return frame.totalFrames
 }
 
 // GetCurFrames 获取当前帧数
-func (frame *_FrameBehavior) GetCurFrames() int64 {
+func (frame *_Frame) GetCurFrames() int64 {
 	return frame.curFrames
 }
 
 // GetRunningBeginTime 获取运行开始时间
-func (frame *_FrameBehavior) GetRunningBeginTime() time.Time {
+func (frame *_Frame) GetRunningBeginTime() time.Time {
 	return frame.runningBeginTime
 }
 
 // GetRunningElapseTime 获取运行持续时间
-func (frame *_FrameBehavior) GetRunningElapseTime() time.Duration {
+func (frame *_Frame) GetRunningElapseTime() time.Duration {
 	return frame.runningElapseTime
 }
 
 // GetLoopBeginTime 获取当前帧循环开始时间（包含异步调用）
-func (frame *_FrameBehavior) GetLoopBeginTime() time.Time {
+func (frame *_Frame) GetLoopBeginTime() time.Time {
 	return frame.loopBeginTime
 }
 
 // GetLastLoopElapseTime 获取上一帧循环耗时（包含异步调用）
-func (frame *_FrameBehavior) GetLastLoopElapseTime() time.Duration {
+func (frame *_Frame) GetLastLoopElapseTime() time.Duration {
 	return frame.lastLoopElapseTime
 }
 
 // GetUpdateBeginTime 获取当前帧更新开始时间
-func (frame *_FrameBehavior) GetUpdateBeginTime() time.Time {
+func (frame *_Frame) GetUpdateBeginTime() time.Time {
 	return frame.updateBeginTime
 }
 
 // GetLastUpdateElapseTime 获取上一次帧更新耗时
-func (frame *_FrameBehavior) GetLastUpdateElapseTime() time.Duration {
+func (frame *_Frame) GetLastUpdateElapseTime() time.Duration {
 	return frame.lastUpdateElapseTime
 }
 
-func (frame *_FrameBehavior) init(mode runtime.FrameMode, targetFPS float64, totalFrames int64) {
+func (frame *_Frame) init(mode runtime.FrameMode, targetFPS float64, totalFrames int64) {
 	frame.mode = mode
 	frame.targetFPS = targetFPS
 	frame.totalFrames = totalFrames
 }
 
-func (frame *_FrameBehavior) setCurFrames(v int64) {
+func (frame *_Frame) setCurFrames(v int64) {
 	frame.curFrames = v
 }
 
-func (frame *_FrameBehavior) runningBegin() {
+func (frame *_Frame) runningBegin() {
 	now := time.Now()
 
 	frame.curFPS = 0
@@ -131,10 +131,10 @@ func (frame *_FrameBehavior) runningBegin() {
 	}
 }
 
-func (frame *_FrameBehavior) runningEnd() {
+func (frame *_Frame) runningEnd() {
 }
 
-func (frame *_FrameBehavior) loopBegin() {
+func (frame *_Frame) loopBegin() {
 	switch frame.mode {
 	case runtime.FrameMode_Simulate, runtime.FrameMode_Manual:
 		frame.loopBeginTime = frame.runningBeginTime.Add(frame.fixedLoopElapseTime * time.Duration(frame.curFrames))
@@ -151,7 +151,7 @@ func (frame *_FrameBehavior) loopBegin() {
 	}
 }
 
-func (frame *_FrameBehavior) loopEnd() {
+func (frame *_Frame) loopEnd() {
 	switch frame.mode {
 	case runtime.FrameMode_Simulate, runtime.FrameMode_Manual:
 		frame.lastLoopElapseTime = frame.fixedLoopElapseTime
@@ -164,7 +164,7 @@ func (frame *_FrameBehavior) loopEnd() {
 	}
 }
 
-func (frame *_FrameBehavior) updateBegin() {
+func (frame *_Frame) updateBegin() {
 	switch frame.mode {
 	case runtime.FrameMode_Simulate, runtime.FrameMode_Manual:
 		frame.updateBeginTime = frame.runningBeginTime.Add(frame.fixedLoopElapseTime * time.Duration(frame.curFrames))
@@ -173,7 +173,7 @@ func (frame *_FrameBehavior) updateBegin() {
 	}
 }
 
-func (frame *_FrameBehavior) updateEnd() {
+func (frame *_Frame) updateEnd() {
 	switch frame.mode {
 	case runtime.FrameMode_Simulate, runtime.FrameMode_Manual:
 		frame.lastUpdateElapseTime = frame.fixedLoopElapseTime

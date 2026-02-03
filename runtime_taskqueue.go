@@ -33,7 +33,7 @@ var (
 	ErrTaskQueueFull   = fmt.Errorf("%w: task queue is full", ErrRuntime)   // 任务处理流水线已满
 )
 
-type _TaskQueueBehavior struct {
+type _TaskQueue struct {
 	boundedChan    chan _Task
 	unboundedChan  *generic.UnboundedChannel[_Task]
 	callEnqueued   atomic.Int64
@@ -42,7 +42,7 @@ type _TaskQueueBehavior struct {
 	frameCompleted atomic.Int64
 }
 
-func (q *_TaskQueueBehavior) init(enable, unbounded bool, capacity int) {
+func (q *_TaskQueue) init(enable, unbounded bool, capacity int) {
 	if enable {
 		if unbounded {
 			q.unboundedChan = generic.NewUnboundedChannel[_Task]()
@@ -55,7 +55,7 @@ func (q *_TaskQueueBehavior) init(enable, unbounded bool, capacity int) {
 	}
 }
 
-func (q *_TaskQueueBehavior) pushCall(fun generic.FuncVar0[any, async.Ret], action generic.ActionVar0[any], delegate generic.DelegateVar0[any, async.Ret], delegateVoid generic.DelegateVoidVar0[any], args []any) (asyncRet async.AsyncRet) {
+func (q *_TaskQueue) pushCall(fun generic.FuncVar0[any, async.Ret], action generic.ActionVar0[any], delegate generic.DelegateVar0[any, async.Ret], delegateVoid generic.DelegateVoidVar0[any], args []any) (asyncRet async.AsyncRet) {
 	task := _Task{
 		typ:          _TaskType_Call,
 		fun:          fun,
@@ -91,7 +91,7 @@ func (q *_TaskQueueBehavior) pushCall(fun generic.FuncVar0[any, async.Ret], acti
 	return async.Return(task.asyncRet, async.NewRet(nil, ErrTaskQueueClosed))
 }
 
-func (q *_TaskQueueBehavior) pushFrame(ctx context.Context, action generic.ActionVar0[any], done chan struct{}) bool {
+func (q *_TaskQueue) pushFrame(ctx context.Context, action generic.ActionVar0[any], done chan struct{}) bool {
 	task := _Task{
 		typ:    _TaskType_Frame,
 		action: action,
@@ -127,7 +127,7 @@ func (q *_TaskQueueBehavior) pushFrame(ctx context.Context, action generic.Actio
 	return false
 }
 
-func (q *_TaskQueueBehavior) out() <-chan _Task {
+func (q *_TaskQueue) out() <-chan _Task {
 	if q.boundedChan != nil {
 		return q.boundedChan
 	}
@@ -137,7 +137,7 @@ func (q *_TaskQueueBehavior) out() <-chan _Task {
 	return nil
 }
 
-func (q *_TaskQueueBehavior) complete(typ _TaskType) {
+func (q *_TaskQueue) complete(typ _TaskType) {
 	switch typ {
 	case _TaskType_Call:
 		q.callCompleted.Add(1)
@@ -146,7 +146,7 @@ func (q *_TaskQueueBehavior) complete(typ _TaskType) {
 	}
 }
 
-func (q *_TaskQueueBehavior) close() {
+func (q *_TaskQueue) close() {
 	if q.boundedChan != nil {
 		close(q.boundedChan)
 	}
