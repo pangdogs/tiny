@@ -1,3 +1,22 @@
+/*
+ * This file is part of Golaxy Distributed Service Development Framework.
+ *
+ * Golaxy Distributed Service Development Framework is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 2.1 of the License, or
+ * (at your option) any later version.
+ *
+ * Golaxy Distributed Service Development Framework is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Golaxy Distributed Service Development Framework. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Copyright (c) 2024 pangdogs.
+ */
+
 package tiny
 
 import (
@@ -19,8 +38,6 @@ func (rt *RuntimeBehavior) Run() async.AsyncRet {
 	select {
 	case <-ctx.Done():
 		exception.Panicf("%w: %w", ErrRuntime, ctx.Err())
-	case <-ctx.Terminated():
-		exception.Panicf("%w: terminated", ErrRuntime)
 	default:
 	}
 
@@ -29,7 +46,12 @@ func (rt *RuntimeBehavior) Run() async.AsyncRet {
 	}
 
 	if parentCtx, ok := ctx.GetParentContext().(corectx.Context); ok {
-		parentCtx.GetWaitGroup().Add(1)
+		if !parentCtx.GetWaitGroup().Join(1) {
+			ctx.Terminate()
+			corectx.UnsafeContext(ctx).CloseWaitGroup()
+			corectx.UnsafeContext(ctx).ReturnTerminated()
+			return ctx.Terminated()
+		}
 	}
 
 	go rt.running()
@@ -61,6 +83,8 @@ func (rt *RuntimeBehavior) running() {
 	rt.emitEventRunningEvent(runtime.RunningEvent_Terminating)
 
 	rt.loopStop(handles)
+
+	corectx.UnsafeContext(ctx).CloseWaitGroup()
 	ctx.GetWaitGroup().Wait()
 
 	rt.emitEventRunningEvent(runtime.RunningEvent_Terminated)
@@ -83,17 +107,15 @@ func (rt *RuntimeBehavior) onBeforeContextRunningEvent(ctx runtime.Context, runn
 			rt.getInstance().Run()
 		}
 	case runtime.RunningEvent_Starting:
-		rt.initComponentPT()
-		rt.initEntityPT()
 		rt.initAddIn()
 	case runtime.RunningEvent_FrameLoopBegin:
-		runtime.UnsafeFrame(rt.options.Frame).LoopBegin()
+		rt.frame.loopBegin()
 	case runtime.RunningEvent_FrameUpdateBegin:
-		runtime.UnsafeFrame(rt.options.Frame).UpdateBegin()
+		rt.frame.updateBegin()
 	case runtime.RunningEvent_FrameUpdateEnd:
-		runtime.UnsafeFrame(rt.options.Frame).UpdateEnd()
+		rt.frame.updateEnd()
 	case runtime.RunningEvent_FrameLoopEnd:
-		runtime.UnsafeFrame(rt.options.Frame).LoopEnd()
+		rt.frame.loopEnd()
 	}
 }
 
@@ -216,10 +238,9 @@ func (rt *RuntimeBehavior) deactivateAddIn(status extension.AddInStatus) {
 
 func (rt *RuntimeBehavior) loopStart() []event.Handle {
 	ctx := rt.ctx
-	frame := rt.options.Frame
 
-	if frame != nil {
-		runtime.UnsafeFrame(frame).RunningBegin()
+	if rt.frame != nil {
+		rt.frame.runningBegin()
 	}
 
 	return []event.Handle{
@@ -233,22 +254,18 @@ func (rt *RuntimeBehavior) loopStart() []event.Handle {
 }
 
 func (rt *RuntimeBehavior) loopStop(handles []event.Handle) {
-	frame := rt.options.Frame
-
 	event.UnbindHandles(handles)
 
-	if frame != nil {
-		runtime.UnsafeFrame(frame).RunningEnd()
+	if rt.frame != nil {
+		rt.frame.runningEnd()
 	}
 }
 
 func (rt *RuntimeBehavior) mainLoop() {
-	frame := rt.options.Frame
-
-	if frame == nil {
+	if rt.frame == nil {
 		rt.loopingNoFrame()
 	} else {
-		switch frame.GetMode() {
+		switch rt.frame.GetMode() {
 		case runtime.FrameMode_Simulate:
 			rt.loopingSimulate()
 		case runtime.FrameMode_Manual:
@@ -268,6 +285,7 @@ func (rt *RuntimeBehavior) runTask(task _Task) {
 	case _TaskType_Frame:
 		task.run(rt.ctx.GetAutoRecover(), rt.ctx.GetReportError())
 	}
+	rt.taskQueue.complete(task.typ)
 }
 
 func (rt *RuntimeBehavior) runGC() {

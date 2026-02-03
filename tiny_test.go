@@ -140,8 +140,8 @@ func Test_ServiceRegisterEntityPT(t *testing.T) {
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 
 	rtCtx := runtime.NewContext(
-		runtime.With.Context.Context(ctx),
-		runtime.With.Context.RunningEventCB(func(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
+		runtime.With.Context(ctx),
+		runtime.With.RunningEventCB(func(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
 			switch runningEvent {
 			case runtime.RunningEvent_Birth:
 				ctx.GetEntityLib().Declare(
@@ -174,8 +174,8 @@ func Test_CreateEntity(t *testing.T) {
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 
 	rtCtx := runtime.NewContext(
-		runtime.With.Context.Context(ctx),
-		runtime.With.Context.RunningEventCB(func(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
+		runtime.With.Context(ctx),
+		runtime.With.RunningEventCB(func(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
 			switch runningEvent {
 			case runtime.RunningEvent_Birth:
 				tiny.BuildEntityPT(ctx, "Test1").
@@ -324,8 +324,8 @@ func Test_EntityComponentEnable(t *testing.T) {
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 
 	rtCtx := runtime.NewContext(
-		runtime.With.Context.Context(ctx),
-		runtime.With.Context.RunningEventCB(func(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
+		runtime.With.Context(ctx),
+		runtime.With.RunningEventCB(func(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
 			switch runningEvent {
 			case runtime.RunningEvent_Birth:
 				tiny.BuildEntityPT(ctx, "Test1").
@@ -406,8 +406,8 @@ func Test_EntityDynamicComponent(t *testing.T) {
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 
 	rtCtx := runtime.NewContext(
-		runtime.With.Context.Context(ctx),
-		runtime.With.Context.RunningEventCB(func(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
+		runtime.With.Context(ctx),
+		runtime.With.RunningEventCB(func(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
 			switch runningEvent {
 			case runtime.RunningEvent_Birth:
 				ctx.GetEntityLib().GetComponentLib().Declare(ComponentTest2{})
@@ -510,8 +510,8 @@ func Test_EntityTree(t *testing.T) {
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 
 	rtCtx := runtime.NewContext(
-		runtime.With.Context.Context(ctx),
-		runtime.With.Context.RunningEventCB(func(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
+		runtime.With.Context(ctx),
+		runtime.With.RunningEventCB(func(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
 			switch runningEvent {
 			case runtime.RunningEvent_Birth:
 				tiny.BuildEntityPT(ctx, "Test1").
@@ -760,8 +760,8 @@ func Test_EntityTreeSequence(t *testing.T) {
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 
 	rtCtx := runtime.NewContext(
-		runtime.With.Context.Context(ctx),
-		runtime.With.Context.RunningEventCB(func(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
+		runtime.With.Context(ctx),
+		runtime.With.RunningEventCB(func(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
 			switch runningEvent {
 			case runtime.RunningEvent_Birth:
 				tiny.BuildEntityPT(ctx, "Test1").
@@ -965,8 +965,8 @@ func Test_RuntimeAddIn(t *testing.T) {
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 
 	rtCtx := runtime.NewContext(
-		runtime.With.Context.Context(ctx),
-		runtime.With.Context.RunningEventCB(func(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
+		runtime.With.Context(ctx),
+		runtime.With.RunningEventCB(func(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
 			switch runningEvent {
 			case runtime.RunningEvent_Birth:
 				runtimeAddIn1.Install(ctx)

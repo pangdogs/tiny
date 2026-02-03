@@ -17,50 +17,12 @@
  * Copyright (c) 2024 pangdogs.
  */
 
-package runtime
+package tiny
 
-// Deprecated: UnsafeFrame 访问帧内部方法
-func UnsafeFrame(frame Frame) _UnsafeFrame {
-	return _UnsafeFrame{
-		Frame: frame,
-	}
-}
+var With _Option
 
-type _UnsafeFrame struct {
-	Frame
-}
-
-// SetCurFrames 设置当前帧号
-func (u _UnsafeFrame) SetCurFrames(v int64) {
-	u.setCurFrames(v)
-}
-
-// RunningBegin 开始运行
-func (u _UnsafeFrame) RunningBegin() {
-	u.runningBegin()
-}
-
-// RunningEnd 运行结束
-func (u _UnsafeFrame) RunningEnd() {
-	u.runningEnd()
-}
-
-// LoopBegin 开始帧循环
-func (u _UnsafeFrame) LoopBegin() {
-	u.loopBegin()
-}
-
-// LoopEnd 帧循环结束
-func (u _UnsafeFrame) LoopEnd() {
-	u.loopEnd()
-}
-
-// UpdateBegin 开始帧更新
-func (u _UnsafeFrame) UpdateBegin() {
-	u.updateBegin()
-}
-
-// UpdateEnd 帧更新结束
-func (u _UnsafeFrame) UpdateEnd() {
-	u.updateEnd()
+type _Option struct {
+	Runtime   _RuntimeOption   // 运行时的选项
+	Frame     _FrameOption     // 帧的选项
+	TaskQueue _TaskQueueOption // 任务处理流水线的选项
 }

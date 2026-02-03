@@ -51,19 +51,21 @@ type ContextOptions struct {
 	RunningEventCB RunningEventCB                // 运行事件回调
 }
 
+var With _ContextOption
+
 type _ContextOption struct{}
 
 // Default 默认值
 func (_ContextOption) Default() option.Setting[ContextOptions] {
 	return func(options *ContextOptions) {
-		With.Context.InstanceFace(iface.Face[Context]{}).Apply(options)
-		With.Context.Context(nil).Apply(options)
-		With.Context.PanicHandling(false, nil).Apply(options)
-		With.Context.Name("").Apply(options)
-		With.Context.UIDGenerator(uidGenerator).Apply(options)
-		With.Context.EntityLib(nil).Apply(options)
-		With.Context.AddInManager(nil).Apply(options)
-		With.Context.RunningEventCB(nil).Apply(options)
+		With.InstanceFace(iface.Face[Context]{}).Apply(options)
+		With.Context(nil).Apply(options)
+		With.PanicHandling(false, nil).Apply(options)
+		With.Name("").Apply(options)
+		With.UIDGenerator(uidGenerator).Apply(options)
+		With.EntityLib(nil).Apply(options)
+		With.AddInManager(nil).Apply(options)
+		With.RunningEventCB(nil).Apply(options)
 	}
 }
 

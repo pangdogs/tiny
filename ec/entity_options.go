@@ -32,12 +32,12 @@ type EntityOptions struct {
 	Meta                       meta.Meta          // Meta信息
 }
 
-var With _Option
+var With _EntityOption
 
-type _Option struct{}
+type _EntityOption struct{}
 
 // Default 默认值
-func (_Option) Default() option.Setting[EntityOptions] {
+func (_EntityOption) Default() option.Setting[EntityOptions] {
 	return func(options *EntityOptions) {
 		With.InstanceFace(iface.Face[Entity]{}).Apply(options)
 		With.ComponentAwakeOnFirstTouch(false).Apply(options)
@@ -46,21 +46,21 @@ func (_Option) Default() option.Setting[EntityOptions] {
 }
 
 // InstanceFace 实例，用于扩展实体能力
-func (_Option) InstanceFace(face iface.Face[Entity]) option.Setting[EntityOptions] {
+func (_EntityOption) InstanceFace(face iface.Face[Entity]) option.Setting[EntityOptions] {
 	return func(options *EntityOptions) {
 		options.InstanceFace = face
 	}
 }
 
 // ComponentAwakeOnFirstTouch 当实体组件首次被访问时，生命周期是否进入唤醒（Awake）
-func (_Option) ComponentAwakeOnFirstTouch(b bool) option.Setting[EntityOptions] {
+func (_EntityOption) ComponentAwakeOnFirstTouch(b bool) option.Setting[EntityOptions] {
 	return func(options *EntityOptions) {
 		options.ComponentAwakeOnFirstTouch = b
 	}
 }
 
 // Meta Meta信息
-func (_Option) Meta(m meta.Meta) option.Setting[EntityOptions] {
+func (_EntityOption) Meta(m meta.Meta) option.Setting[EntityOptions] {
 	return func(options *EntityOptions) {
 		options.Meta = m
 	}

@@ -1,9 +1,7 @@
 package tiny
 
-import "git.golaxy.org/tiny/runtime"
-
 func (rt *RuntimeBehavior) loopingSimulate() {
-	frame := runtime.UnsafeFrame(rt.options.Frame)
+	frame := rt.frame
 
 	totalFrames := frame.GetTotalFrames()
 	gcFrames := int64(rt.options.GCInterval.Seconds() * frame.GetTargetFPS())

@@ -39,7 +39,7 @@ import (
 
 // NewContext 创建运行时上下文
 func NewContext(settings ...option.Setting[ContextOptions]) Context {
-	return UnsafeNewContext(option.New(With.Context.Default(), settings...))
+	return UnsafeNewContext(option.New(With.Default(), settings...))
 }
 
 // Deprecated: UnsafeNewContext 内部创建运行时上下文
@@ -106,10 +106,10 @@ type ContextBehavior struct {
 	uidGenerator  int64
 	frame         Frame
 	entityManager _EntityManagerBehavior
-	managed       event.ManagedHandles
 	callee        async.Callee
 	scoped        atomic.Bool
 	gcList        []GC
+	managed       event.ManagedHandles
 	stringerOnce  sync.Once
 	stringerCache string
 

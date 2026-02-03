@@ -1,16 +1,13 @@
 package tiny
 
-import (
-	"git.golaxy.org/tiny/runtime"
-)
-
 func (rt *RuntimeBehavior) loopingManual() {
-	frame := runtime.UnsafeFrame(rt.options.Frame)
+	frame := rt.frame
 
 	totalFrames := frame.GetTotalFrames()
 	gcFrames := int64(rt.options.GCInterval.Seconds() * frame.GetTargetFPS())
 
 	var curCtrl _Ctrl
+	taskOut := rt.taskQueue.out()
 
 loop:
 	for rt.frameLoopBegin(); ; {
@@ -43,7 +40,7 @@ loop:
 					curCtrl = ctrl
 					goto pause
 
-				case task, ok := <-rt.taskQueue:
+				case task, ok := <-taskOut:
 					if !ok {
 						break loop
 					}
@@ -69,12 +66,12 @@ loop:
 	}
 
 	close(rt.ctrlChan)
-	close(rt.taskQueue)
+	rt.taskQueue.close()
 
 loopEnding:
 	for {
 		select {
-		case task, ok := <-rt.taskQueue:
+		case task, ok := <-taskOut:
 			if !ok {
 				break loopEnding
 			}
