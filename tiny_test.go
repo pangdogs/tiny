@@ -167,7 +167,7 @@ func Test_ServiceRegisterEntityPT(t *testing.T) {
 		}),
 	)
 
-	<-tiny.NewRuntime(rtCtx).Run()
+	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enable(false))).Run()
 }
 
 func Test_CreateEntity(t *testing.T) {
@@ -201,7 +201,7 @@ func Test_CreateEntity(t *testing.T) {
 		}),
 	)
 
-	<-tiny.NewRuntime(rtCtx).Run()
+	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enable(false))).Run()
 }
 
 type ComponentTestEnable1 struct {
@@ -341,7 +341,7 @@ func Test_EntityComponentEnable(t *testing.T) {
 		}),
 	)
 
-	<-tiny.NewRuntime(rtCtx).Run()
+	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enable(false))).Run()
 }
 
 type ComponentTestDynamic1 struct {
@@ -430,7 +430,7 @@ func Test_EntityDynamicComponent(t *testing.T) {
 		}),
 	)
 
-	<-tiny.NewRuntime(rtCtx).Run()
+	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enable(false))).Run()
 }
 
 type ComponentTestParent struct {
@@ -637,7 +637,7 @@ func Test_EntityTree(t *testing.T) {
 		}),
 	)
 
-	<-tiny.NewRuntime(rtCtx).Run()
+	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enable(false))).Run()
 }
 
 type ComponentTestChildDetachInAttaching struct {
@@ -936,6 +936,83 @@ func Test_EntityTreeSequence(t *testing.T) {
 		}),
 	)
 
+	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enable(false))).Run()
+}
+
+type ComponentTestFrameUpdate struct {
+	ec.ComponentBehavior
+}
+
+func (c *ComponentTestFrameUpdate) Update() {
+	frame := runtime.Current(c).GetFrame()
+	log.Printf("Component %s.%s Update, fps: %.2f", c.GetEntity().GetId(), c.GetName(), frame.GetCurFPS())
+}
+
+func (c *ComponentTestFrameUpdate) LateUpdate() {
+	log.Printf("Component %s.%s LateUpdate", c.GetEntity().GetId(), c.GetName())
+}
+
+func Test_CreateEntityFrameUpdate(t *testing.T) {
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+
+	rtCtx := runtime.NewContext(
+		runtime.With.Context(ctx),
+		runtime.With.RunningEventCB(func(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
+			switch runningEvent {
+			case runtime.RunningEvent_Birth:
+				tiny.BuildEntityPT(ctx, "Test1").
+					AddComponent(ComponentTestFrameUpdate{}).
+					Declare()
+			case runtime.RunningEvent_Started:
+				for range 10 {
+					tiny.BuildEntity(ctx, "Test1").New()
+				}
+			}
+			log.Println("runtime event:", runningEvent, args)
+		}),
+	)
+
+	<-tiny.NewRuntime(rtCtx).Run()
+}
+
+type ComponentTestStressFrameUpdate struct {
+	ec.ComponentBehavior
+	count int
+}
+
+func (c *ComponentTestStressFrameUpdate) Update() {
+	c.count++
+}
+
+func (c *ComponentTestStressFrameUpdate) LateUpdate() {
+	c.count++
+}
+
+func Test_CreateEntityStressFrameUpdate(t *testing.T) {
+	ctx, _ := context.WithTimeout(context.Background(), 120*time.Second)
+
+	rtCtx := runtime.NewContext(
+		runtime.With.Context(ctx),
+		runtime.With.RunningEventCB(func(ctx runtime.Context, runningEvent runtime.RunningEvent, args ...any) {
+			switch runningEvent {
+			case runtime.RunningEvent_Birth:
+				tiny.BuildEntityPT(ctx, "Test1").
+					AddComponent(ComponentTestStressFrameUpdate{}).
+					Declare()
+			case runtime.RunningEvent_FrameLoopBegin:
+				for range 200 {
+					tiny.BuildEntity(ctx, "Test1").New()
+				}
+			case runtime.RunningEvent_RunGCBegin:
+				log.Printf("fps: %.2f, running_elapse_time: %.3f, last_loop_elapse_time: %.3f, entities: %d",
+					ctx.GetFrame().GetCurFPS(),
+					ctx.GetFrame().GetRunningElapseTime().Seconds(),
+					ctx.GetFrame().GetLastLoopElapseTime().Seconds(),
+					ctx.GetEntityManager().CountEntities())
+			}
+		}),
+	)
+
 	<-tiny.NewRuntime(rtCtx).Run()
 }
 
@@ -975,5 +1052,5 @@ func Test_RuntimeAddIn(t *testing.T) {
 		}),
 	)
 
-	<-tiny.NewRuntime(rtCtx).Run()
+	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enable(false))).Run()
 }
