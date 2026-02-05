@@ -30,6 +30,6 @@ type _UnsafeConcurrentContext struct {
 	ConcurrentContext
 }
 
-func (u _UnsafeConcurrentContext) GetContext() Context {
+func (u _UnsafeConcurrentContext) Context() Context {
 	return u.getContext()
 }

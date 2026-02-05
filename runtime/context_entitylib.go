@@ -21,7 +21,7 @@ package runtime
 
 import "git.golaxy.org/tiny/ec/pt"
 
-// GetEntityLib 获取实体原型库
-func (ctx *ContextBehavior) GetEntityLib() pt.EntityLib {
+// EntityLib 获取实体原型库
+func (ctx *ContextBehavior) EntityLib() pt.EntityLib {
 	return ctx.options.EntityLib
 }

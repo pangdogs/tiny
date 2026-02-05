@@ -22,15 +22,15 @@ package tiny
 func (rt *RuntimeBehavior) loopingManual() {
 	frame := rt.frame
 
-	totalFrames := frame.GetTotalFrames()
-	gcFrames := int64(rt.options.GCInterval.Seconds() * frame.GetTargetFPS())
+	totalFrames := frame.TotalFrames()
+	gcFrames := int64(rt.options.GCInterval.Seconds() * frame.TargetFPS())
 
 	var curCtrl _Ctrl
 	taskOut := rt.taskQueue.out()
 
 loop:
 	for rt.frameLoopBegin(); ; {
-		curFrames := frame.GetCurFrames()
+		curFrames := frame.CurFrames()
 
 		if totalFrames > 0 && curFrames >= totalFrames {
 			break loop

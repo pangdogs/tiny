@@ -33,8 +33,8 @@ import (
 type EntityLib interface {
 	EntityPTProvider
 
-	// GetComponentLib 获取组件原型库
-	GetComponentLib() ComponentLib
+	// ComponentLib 获取组件原型库
+	ComponentLib() ComponentLib
 	// Declare 声明实体原型
 	Declare(prototype any, comps ...any) ec.EntityPT
 	// Get 获取实体原型
@@ -65,13 +65,13 @@ type _EntityLib struct {
 	entityLibEventTab
 }
 
-// GetEntityLib 获取实体原型库
-func (lib *_EntityLib) GetEntityLib() EntityLib {
+// EntityLib 获取实体原型库
+func (lib *_EntityLib) EntityLib() EntityLib {
 	return lib
 }
 
-// GetComponentLib 获取组件原型库
-func (lib *_EntityLib) GetComponentLib() ComponentLib {
+// ComponentLib 获取组件原型库
+func (lib *_EntityLib) ComponentLib() ComponentLib {
 	return lib.compLib
 }
 

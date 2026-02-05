@@ -119,5 +119,5 @@ func (c *EntityPTCreator) Declare() {
 	if c.descr == nil {
 		exception.Panicf("%w: descr is nil", ErrTiny)
 	}
-	c.rtCtx.GetEntityLib().Declare(c.descr, c.comps...)
+	c.rtCtx.EntityLib().Declare(c.descr, c.comps...)
 }

@@ -35,6 +35,6 @@ func (ur _UnsafeRuntime) Init(ctx runtime.Context, opts RuntimeOptions) {
 	ur.init(ctx, opts)
 }
 
-func (ur _UnsafeRuntime) GetOptions() *RuntimeOptions {
+func (ur _UnsafeRuntime) Options() *RuntimeOptions {
 	return ur.getOptions()
 }

@@ -37,8 +37,8 @@ type _UnsafeContext struct {
 	Context
 }
 
-// GetOptions 获取运行时上下文所有选项
-func (u _UnsafeContext) GetOptions() *ContextOptions {
+// Options 获取运行时上下文所有选项
+func (u _UnsafeContext) Options() *ContextOptions {
 	return u.getOptions()
 }
 
@@ -57,13 +57,13 @@ func (u _UnsafeContext) SetCallee(callee async.Callee) {
 	u.setCallee(callee)
 }
 
-// GetAddInManager 获取插件管理器
-func (u _UnsafeContext) GetAddInManager() extension.RuntimeAddInManager {
+// AddInManager 获取插件管理器
+func (u _UnsafeContext) AddInManager() extension.RuntimeAddInManager {
 	return u.getAddInManager()
 }
 
-// GetScoped 获取作用域状态
-func (u _UnsafeContext) GetScoped() *atomic.Bool {
+// Scoped 获取作用域状态
+func (u _UnsafeContext) Scoped() *atomic.Bool {
 	return u.getScoped()
 }
 

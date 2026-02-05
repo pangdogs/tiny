@@ -65,7 +65,7 @@ func (rt *RuntimeBehavior) Play(ctx context.Context, delta time.Duration) (err e
 
 	ctrl := _Ctrl{
 		mode:   _CtrlMode_FrameDelta,
-		frames: int64(delta.Seconds() * rt.frame.GetTargetFPS()),
+		frames: int64(delta.Seconds() * rt.frame.TargetFPS()),
 	}
 
 	select {
@@ -96,7 +96,7 @@ func (rt *RuntimeBehavior) PlayAt(ctx context.Context, at time.Duration) (err er
 
 	ctrl := _Ctrl{
 		mode:   _CtrlMode_FrameAt,
-		frames: int64(at.Seconds() * rt.frame.GetTargetFPS()),
+		frames: int64(at.Seconds() * rt.frame.TargetFPS()),
 	}
 
 	select {
