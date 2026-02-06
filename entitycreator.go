@@ -28,7 +28,7 @@ import (
 	"git.golaxy.org/tiny/ec/pt"
 	"git.golaxy.org/tiny/runtime"
 	"git.golaxy.org/tiny/utils/exception"
-	"git.golaxy.org/tiny/utils/uid"
+	"git.golaxy.org/tiny/utils/id"
 )
 
 // BuildEntity 创建实体
@@ -46,7 +46,7 @@ func BuildEntity(provider corectx.CurrentContextProvider, prototype string) *Ent
 type EntityCreator struct {
 	rtCtx     runtime.Context
 	prototype string
-	parentId  uid.Id
+	parentId  id.Id
 	meta      meta.Meta
 	settings  []option.Setting[ec.EntityOptions]
 }
@@ -113,7 +113,7 @@ func (c *EntityCreator) AssignMeta(m meta.Meta) *EntityCreator {
 }
 
 // SetParentId 设置父实体Id
-func (c *EntityCreator) SetParentId(id uid.Id) *EntityCreator {
+func (c *EntityCreator) SetParentId(id id.Id) *EntityCreator {
 	c.parentId = id
 	return c
 }

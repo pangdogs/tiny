@@ -33,7 +33,7 @@ import (
 	"git.golaxy.org/core/utils/meta"
 	"git.golaxy.org/core/utils/option"
 	"git.golaxy.org/core/utils/reinterpret"
-	"git.golaxy.org/tiny/utils/uid"
+	"git.golaxy.org/tiny/utils/id"
 )
 
 // NewEntity 创建实体
@@ -67,7 +67,7 @@ type Entity interface {
 	fmt.Stringer
 
 	// Id 获取实体Id
-	Id() uid.Id
+	Id() id.Id
 	// PT 获取实体原型信息
 	PT() EntityPT
 	// State 获取实体状态
@@ -88,7 +88,7 @@ type iEntity interface {
 	init(options EntityOptions)
 	withContext(ctx context.Context)
 	getOptions() *EntityOptions
-	setId(id uid.Id)
+	setId(id id.Id)
 	setPT(prototype EntityPT)
 	setContext(ctx iface.Cache)
 	setState(state EntityState)
@@ -111,7 +111,7 @@ type EntityBehavior struct {
 	terminate             context.CancelFunc
 	terminated            chan async.Ret
 	options               EntityOptions
-	id                    uid.Id
+	id                    id.Id
 	prototype             EntityPT
 	context               iface.Cache
 	componentNameIndex    generic.SliceMap[string, int]
@@ -134,7 +134,7 @@ type EntityBehavior struct {
 }
 
 // Id 获取实体Id
-func (entity *EntityBehavior) Id() uid.Id {
+func (entity *EntityBehavior) Id() id.Id {
 	return entity.id
 }
 
@@ -225,7 +225,7 @@ func (entity *EntityBehavior) getOptions() *EntityOptions {
 	return &entity.options
 }
 
-func (entity *EntityBehavior) setId(id uid.Id) {
+func (entity *EntityBehavior) setId(id id.Id) {
 	entity.id = id
 }
 

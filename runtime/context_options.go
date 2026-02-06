@@ -27,6 +27,7 @@ import (
 	"git.golaxy.org/core/utils/generic"
 	"git.golaxy.org/core/utils/iface"
 	"git.golaxy.org/core/utils/option"
+	"git.golaxy.org/core/utils/uid"
 	"git.golaxy.org/tiny/ec/pt"
 )
 
@@ -35,7 +36,7 @@ type (
 )
 
 var (
-	uidGenerator = &atomic.Int64{}
+	idGenerator = &atomic.Int64{}
 )
 
 // ContextOptions 创建运行时上下文的所有选项
@@ -45,7 +46,8 @@ type ContextOptions struct {
 	AutoRecover    bool                          // 是否开启panic时自动恢复
 	ReportError    chan error                    // panic时错误写入的error channel
 	Name           string                        // 运行时名称
-	UIDGenerator   *atomic.Int64                 // uid生成器
+	PersistId      uid.Id                        // 运行时持久化Id
+	IdGenerator    *atomic.Int64                 // 本地唯一Id生成器
 	EntityLib      pt.EntityLib                  // 实体原型库
 	AddInManager   extension.RuntimeAddInManager // 插件管理器
 	RunningEventCB RunningEventCB                // 运行事件回调
@@ -62,7 +64,8 @@ func (_ContextOption) Default() option.Setting[ContextOptions] {
 		With.Context(nil).Apply(options)
 		With.PanicHandling(false, nil).Apply(options)
 		With.Name("").Apply(options)
-		With.UIDGenerator(uidGenerator).Apply(options)
+		With.PersistId(uid.Nil).Apply(options)
+		With.IdGenerator(idGenerator).Apply(options)
 		With.EntityLib(nil).Apply(options)
 		With.AddInManager(nil).Apply(options)
 		With.RunningEventCB(nil).Apply(options)
@@ -98,10 +101,17 @@ func (_ContextOption) Name(name string) option.Setting[ContextOptions] {
 	}
 }
 
-// UIDGenerator uid生成器
-func (_ContextOption) UIDGenerator(gen *atomic.Int64) option.Setting[ContextOptions] {
+// PersistId 运行时持久化Id
+func (_ContextOption) PersistId(id uid.Id) option.Setting[ContextOptions] {
 	return func(options *ContextOptions) {
-		options.UIDGenerator = gen
+		options.PersistId = id
+	}
+}
+
+// IdGenerator 本地唯一Id生成器
+func (_ContextOption) IdGenerator(gen *atomic.Int64) option.Setting[ContextOptions] {
+	return func(options *ContextOptions) {
+		options.IdGenerator = gen
 	}
 }
 

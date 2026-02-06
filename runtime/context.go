@@ -33,8 +33,9 @@ import (
 	"git.golaxy.org/core/utils/iface"
 	"git.golaxy.org/core/utils/option"
 	"git.golaxy.org/core/utils/reinterpret"
+	"git.golaxy.org/core/utils/uid"
 	"git.golaxy.org/tiny/ec/pt"
-	"git.golaxy.org/tiny/utils/uid"
+	"git.golaxy.org/tiny/utils/id"
 )
 
 // NewContext 创建运行时上下文
@@ -69,12 +70,14 @@ type Context interface {
 	GCCollector
 	fmt.Stringer
 
+	// Id 获取运行时Id
+	Id() uid.Id
 	// Name 获取名称
 	Name() string
 	// Reflected 获取反射值
 	Reflected() reflect.Value
-	// GenUID 生成uid
-	GenUID() uid.Id
+	// GenId 生成本地唯一Id
+	GenId() id.Id
 	// Frame 获取帧
 	Frame() Frame
 	// EntityManager 获取实体管理器
@@ -103,7 +106,7 @@ type ContextBehavior struct {
 	corectx.ContextBehavior
 	options       ContextOptions
 	reflected     reflect.Value
-	uidGenerator  int64
+	idGenerator   int64
 	frame         Frame
 	entityManager _EntityManager
 	callee        async.Callee
@@ -121,18 +124,23 @@ func (ctx *ContextBehavior) Name() string {
 	return ctx.options.Name
 }
 
+// Id 获取运行时Id
+func (ctx *ContextBehavior) Id() uid.Id {
+	return ctx.options.PersistId
+}
+
 // Reflected 获取反射值
 func (ctx *ContextBehavior) Reflected() reflect.Value {
 	return ctx.reflected
 }
 
-// GenUID 生成uid
-func (ctx *ContextBehavior) GenUID() uid.Id {
-	if ctx.options.UIDGenerator != nil {
-		return uid.Id(ctx.options.UIDGenerator.Add(1))
+// GenId 生成本地唯一Id
+func (ctx *ContextBehavior) GenId() id.Id {
+	if ctx.options.IdGenerator != nil {
+		return id.Id(ctx.options.IdGenerator.Add(1))
 	}
-	ctx.uidGenerator++
-	return uid.Id(ctx.uidGenerator)
+	ctx.idGenerator++
+	return id.Id(ctx.idGenerator)
 }
 
 // Frame 获取帧
@@ -187,7 +195,7 @@ func (ctx *ContextBehavior) CollectGC(gc GC) {
 // String implements fmt.Stringer
 func (ctx *ContextBehavior) String() string {
 	ctx.stringerOnce.Do(func() {
-		ctx.stringerCache = fmt.Sprintf(`{"name":%q}`, ctx.Name())
+		ctx.stringerCache = fmt.Sprintf(`{"id":%q,"name":%q}`, ctx.Id(), ctx.Name())
 	})
 	return ctx.stringerCache
 }
@@ -201,6 +209,10 @@ func (ctx *ContextBehavior) init(options ContextOptions) {
 
 	if ctx.options.Context == nil {
 		ctx.options.Context = context.Background()
+	}
+
+	if ctx.options.PersistId.IsNil() {
+		ctx.options.PersistId = uid.New()
 	}
 
 	if ctx.options.EntityLib == nil {

@@ -27,7 +27,7 @@ import (
 	"git.golaxy.org/core/utils/corectx"
 	"git.golaxy.org/core/utils/generic"
 	"git.golaxy.org/core/utils/iface"
-	"git.golaxy.org/tiny/utils/uid"
+	"git.golaxy.org/tiny/utils/id"
 )
 
 // Component 组件接口
@@ -37,7 +37,7 @@ type Component interface {
 	fmt.Stringer
 
 	// Id 获取组件Id
-	Id() uid.Id
+	Id() id.Id
 	// Builtin 获取实体原型中的组件信息
 	Builtin() BuiltinComponent
 	// Name 获取组件名称
@@ -64,7 +64,7 @@ type Component interface {
 
 type iComponent interface {
 	init(name string, entity Entity, instance Component)
-	setId(id uid.Id)
+	setId(id id.Id)
 	setBuiltin(builtin *BuiltinComponent)
 	setState(state ComponentState)
 	setReflected(v reflect.Value)
@@ -84,7 +84,7 @@ const (
 
 // ComponentBehavior 组件行为，在开发新组件时，匿名嵌入至组件结构体中
 type ComponentBehavior struct {
-	id                    uid.Id
+	id                    id.Id
 	builtin               *BuiltinComponent
 	name                  string
 	entity                Entity
@@ -105,7 +105,7 @@ type ComponentBehavior struct {
 }
 
 // Id 获取组件Id
-func (comp *ComponentBehavior) Id() uid.Id {
+func (comp *ComponentBehavior) Id() id.Id {
 	return comp.id
 }
 
@@ -231,7 +231,7 @@ func (comp *ComponentBehavior) init(name string, entity Entity, instance Compone
 	comp.enabled = true
 }
 
-func (comp *ComponentBehavior) setId(id uid.Id) {
+func (comp *ComponentBehavior) setId(id id.Id) {
 	comp.id = id
 }
 

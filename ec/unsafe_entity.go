@@ -26,7 +26,7 @@ import (
 	"git.golaxy.org/core/event"
 	"git.golaxy.org/core/utils/generic"
 	"git.golaxy.org/core/utils/iface"
-	"git.golaxy.org/tiny/utils/uid"
+	"git.golaxy.org/tiny/utils/id"
 )
 
 // Deprecated: UnsafeEntity 访问实体内部函数
@@ -51,7 +51,7 @@ func (u _UnsafeEntity) Options() *EntityOptions {
 }
 
 // SetId 设置Id
-func (u _UnsafeEntity) SetId(id uid.Id) {
+func (u _UnsafeEntity) SetId(id id.Id) {
 	u.setId(id)
 }
 
@@ -126,26 +126,26 @@ func (u _UnsafeEntity) SetTreeNodeState(state TreeNodeState) {
 }
 
 // EmitEventTreeNodeAddChild 发送实体树节点添加子实体事件
-func (u _UnsafeEntity) EmitEventTreeNodeAddChild(childId uid.Id) {
+func (u _UnsafeEntity) EmitEventTreeNodeAddChild(childId id.Id) {
 	u.emitEventTreeNodeAddChild(childId)
 }
 
 // EmitEventTreeNodeRemoveChild 发送实体树节点删除子实体事件
-func (u _UnsafeEntity) EmitEventTreeNodeRemoveChild(childId uid.Id) {
+func (u _UnsafeEntity) EmitEventTreeNodeRemoveChild(childId id.Id) {
 	u.emitEventTreeNodeRemoveChild(childId)
 }
 
 // EmitEventTreeNodeAttachParent 发送实体树节点加入父节点事件
-func (u _UnsafeEntity) EmitEventTreeNodeAttachParent(parentId uid.Id) {
+func (u _UnsafeEntity) EmitEventTreeNodeAttachParent(parentId id.Id) {
 	u.emitEventTreeNodeAttachParent(parentId)
 }
 
 // EmitEventTreeNodeDetachParent 发送实体树节点离开父节点事件
-func (u _UnsafeEntity) EmitEventTreeNodeDetachParent(parentId uid.Id) {
+func (u _UnsafeEntity) EmitEventTreeNodeDetachParent(parentId id.Id) {
 	u.emitEventTreeNodeDetachParent(parentId)
 }
 
 // EmitEventTreeNodeMoveTo 发送实体树节点切换父节点事件
-func (u _UnsafeEntity) EmitEventTreeNodeMoveTo(fromParentId, toParentId uid.Id) {
+func (u _UnsafeEntity) EmitEventTreeNodeMoveTo(fromParentId, toParentId id.Id) {
 	u.emitEventTreeNodeMoveTo(fromParentId, toParentId)
 }

@@ -28,7 +28,7 @@ import (
 	"git.golaxy.org/core/utils/iface"
 	"git.golaxy.org/tiny/ec"
 	"git.golaxy.org/tiny/utils/exception"
-	"git.golaxy.org/tiny/utils/uid"
+	"git.golaxy.org/tiny/utils/id"
 )
 
 // EntityManager 实体管理器接口
@@ -38,11 +38,11 @@ type EntityManager interface {
 	// AddEntity 添加实体
 	AddEntity(entity ec.Entity) error
 	// RemoveEntity 删除实体
-	RemoveEntity(id uid.Id)
-	// Entity 查询实体
-	Entity(id uid.Id) (ec.Entity, bool)
+	RemoveEntity(id id.Id)
+	// GetEntity 查询实体
+	GetEntity(id id.Id) (ec.Entity, bool)
 	// ContainsEntity 实体是否存在
-	ContainsEntity(id uid.Id) bool
+	ContainsEntity(id id.Id) bool
 	// RangeEntities 遍历所有实体
 	RangeEntities(fun generic.Func1[ec.Entity, bool])
 	// EachEntities 遍历每个实体
@@ -70,7 +70,7 @@ type _TreeNode struct {
 
 type _EntityManager struct {
 	ctx             Context
-	entityIdIndex   map[uid.Id]int
+	entityIdIndex   map[id.Id]int
 	entityList      generic.FreeList[ec.Entity]
 	entityTreeNodes map[int]*_TreeNode
 
@@ -119,7 +119,7 @@ func (mgr *_EntityManager) AddEntity(entity ec.Entity) error {
 }
 
 // RemoveEntity 删除实体
-func (mgr *_EntityManager) RemoveEntity(id uid.Id) {
+func (mgr *_EntityManager) RemoveEntity(id id.Id) {
 	slotIdx, ok := mgr.entityIdIndex[id]
 	if !ok {
 		return
@@ -128,8 +128,8 @@ func (mgr *_EntityManager) RemoveEntity(id uid.Id) {
 	entity.Destroy()
 }
 
-// Entity 查询实体
-func (mgr *_EntityManager) Entity(id uid.Id) (ec.Entity, bool) {
+// GetEntity 查询实体
+func (mgr *_EntityManager) GetEntity(id id.Id) (ec.Entity, bool) {
 	slotIdx, ok := mgr.entityIdIndex[id]
 	if !ok {
 		return nil, false
@@ -138,7 +138,7 @@ func (mgr *_EntityManager) Entity(id uid.Id) (ec.Entity, bool) {
 }
 
 // ContainsEntity 实体是否存在
-func (mgr *_EntityManager) ContainsEntity(id uid.Id) bool {
+func (mgr *_EntityManager) ContainsEntity(id id.Id) bool {
 	_, ok := mgr.entityIdIndex[id]
 	return ok
 }
@@ -228,7 +228,7 @@ func (mgr *_EntityManager) init(ctx Context) {
 	}
 
 	mgr.ctx = ctx
-	mgr.entityIdIndex = map[uid.Id]int{}
+	mgr.entityIdIndex = map[id.Id]int{}
 	mgr.entityTreeNodes = map[int]*_TreeNode{forestNodeIdx: {parent: forestNodeIdx}}
 
 	mgr.entityManagerEventTab.SetPanicHandling(mgr.ctx.AutoRecover(), mgr.ctx.ReportError())
@@ -252,7 +252,7 @@ func (mgr *_EntityManager) onContextRunningEvent(ctx Context, runningEvent Runni
 }
 
 func (mgr *_EntityManager) initEntity(entity ec.Entity) {
-	ec.UnsafeEntity(entity).SetId(mgr.ctx.GenUID())
+	ec.UnsafeEntity(entity).SetId(mgr.ctx.GenId())
 	ec.UnsafeEntity(entity).SetContext(iface.Iface2Cache[Context](mgr.ctx))
 	ec.UnsafeEntity(entity).WithContext(mgr.ctx)
 
@@ -278,7 +278,7 @@ func (mgr *_EntityManager) initComponent(entity ec.Entity, comp ec.Component) {
 	event.UnsafeEvent(comp.EventComponentEnableChanged()).Ctrl().SetPanicHandling(mgr.ctx.AutoRecover(), mgr.ctx.ReportError())
 	event.UnsafeEvent(comp.EventComponentDestroy()).Ctrl().SetPanicHandling(mgr.ctx.AutoRecover(), mgr.ctx.ReportError())
 
-	ec.UnsafeComponent(comp).SetId(mgr.ctx.GenUID())
+	ec.UnsafeComponent(comp).SetId(mgr.ctx.GenId())
 }
 
 func (mgr *_EntityManager) observeEntity(entity ec.Entity) {

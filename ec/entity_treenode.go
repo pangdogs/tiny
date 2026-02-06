@@ -21,7 +21,7 @@ package ec
 
 import (
 	"git.golaxy.org/core/event"
-	"git.golaxy.org/tiny/utils/uid"
+	"git.golaxy.org/tiny/utils/id"
 )
 
 type iTreeNode interface {
@@ -35,11 +35,11 @@ type iTreeNode interface {
 
 type iiTreeNode interface {
 	setTreeNodeState(state TreeNodeState)
-	emitEventTreeNodeAddChild(childId uid.Id)
-	emitEventTreeNodeRemoveChild(childId uid.Id)
-	emitEventTreeNodeAttachParent(parentId uid.Id)
-	emitEventTreeNodeDetachParent(parentId uid.Id)
-	emitEventTreeNodeMoveTo(fromParentId, toParentId uid.Id)
+	emitEventTreeNodeAddChild(childId id.Id)
+	emitEventTreeNodeRemoveChild(childId id.Id)
+	emitEventTreeNodeAttachParent(parentId id.Id)
+	emitEventTreeNodeDetachParent(parentId id.Id)
+	emitEventTreeNodeMoveTo(fromParentId, toParentId id.Id)
 }
 
 // TreeNodeState 获取实体树节点状态
@@ -76,22 +76,22 @@ func (entity *EntityBehavior) setTreeNodeState(state TreeNodeState) {
 	entity.treeNodeState = state
 }
 
-func (entity *EntityBehavior) emitEventTreeNodeAddChild(childId uid.Id) {
+func (entity *EntityBehavior) emitEventTreeNodeAddChild(childId id.Id) {
 	_EmitEventTreeNodeAddChild(entity, entity.getInstance(), childId)
 }
 
-func (entity *EntityBehavior) emitEventTreeNodeRemoveChild(childId uid.Id) {
+func (entity *EntityBehavior) emitEventTreeNodeRemoveChild(childId id.Id) {
 	_EmitEventTreeNodeRemoveChild(entity, entity.getInstance(), childId)
 }
 
-func (entity *EntityBehavior) emitEventTreeNodeAttachParent(parentId uid.Id) {
+func (entity *EntityBehavior) emitEventTreeNodeAttachParent(parentId id.Id) {
 	_EmitEventTreeNodeAttachParent(entity, entity.getInstance(), parentId)
 }
 
-func (entity *EntityBehavior) emitEventTreeNodeDetachParent(parentId uid.Id) {
+func (entity *EntityBehavior) emitEventTreeNodeDetachParent(parentId id.Id) {
 	_EmitEventTreeNodeDetachParent(entity, entity.getInstance(), parentId)
 }
 
-func (entity *EntityBehavior) emitEventTreeNodeMoveTo(fromParentId, toParentId uid.Id) {
+func (entity *EntityBehavior) emitEventTreeNodeMoveTo(fromParentId, toParentId id.Id) {
 	_EmitEventTreeNodeMoveTo(entity, entity.getInstance(), fromParentId, toParentId)
 }

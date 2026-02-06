@@ -26,7 +26,7 @@ import (
 	"git.golaxy.org/core/event"
 	"git.golaxy.org/core/utils/generic"
 	"git.golaxy.org/tiny/utils/exception"
-	"git.golaxy.org/tiny/utils/uid"
+	"git.golaxy.org/tiny/utils/id"
 )
 
 // iComponentManager 组件管理器接口
@@ -36,13 +36,13 @@ type iComponentManager interface {
 	// GetComponent 使用名称查询组件，组件同名时，返回首个组件
 	GetComponent(name string) Component
 	// GetComponentById 使用组件Id查询组件
-	GetComponentById(id uid.Id) Component
+	GetComponentById(id id.Id) Component
 	// GetComponentByPT 使用组件原型查询组件
 	GetComponentByPT(prototype string) Component
 	// ContainsComponent 组件是否存在
 	ContainsComponent(name string) bool
 	// ContainsComponentById 使用组件Id检测组件是否存在
-	ContainsComponentById(id uid.Id) bool
+	ContainsComponentById(id id.Id) bool
 	// ContainsComponentByPT 使用组件原型查询组件
 	ContainsComponentByPT(prototype string) bool
 	// RangeComponents 遍历所有组件
@@ -64,7 +64,7 @@ type iComponentManager interface {
 	// RemoveComponent 使用名称删除组件，同名组件均会删除
 	RemoveComponent(name string)
 	// RemoveComponentById 使用组件Id删除组件
-	RemoveComponentById(id uid.Id)
+	RemoveComponentById(id id.Id)
 
 	IEntityComponentManagerEventTab
 }
@@ -86,7 +86,7 @@ func (entity *EntityBehavior) GetComponent(name string) Component {
 }
 
 // GetComponentById 使用组件Id查询组件
-func (entity *EntityBehavior) GetComponentById(id uid.Id) Component {
+func (entity *EntityBehavior) GetComponentById(id id.Id) Component {
 	if slot, ok := entity.getComponentSlotById(id); ok {
 		return entity.touchComponent(slot.V)
 	}
@@ -108,7 +108,7 @@ func (entity *EntityBehavior) ContainsComponent(name string) bool {
 }
 
 // ContainsComponentById 使用组件Id检测组件是否存在
-func (entity *EntityBehavior) ContainsComponentById(id uid.Id) bool {
+func (entity *EntityBehavior) ContainsComponentById(id id.Id) bool {
 	_, ok := entity.getComponentSlotById(id)
 	return ok
 }
@@ -261,7 +261,7 @@ func (entity *EntityBehavior) RemoveComponent(name string) {
 }
 
 // RemoveComponentById 使用组件Id删除组件
-func (entity *EntityBehavior) RemoveComponentById(id uid.Id) {
+func (entity *EntityBehavior) RemoveComponentById(id id.Id) {
 	slot, ok := entity.getComponentSlotById(id)
 	if !ok {
 		return
@@ -365,7 +365,7 @@ func (entity *EntityBehavior) getComponentSlot(name string) (*generic.FreeSlot[C
 	return entity.componentList.Get(slotIdx), true
 }
 
-func (entity *EntityBehavior) getComponentSlotById(id uid.Id) (*generic.FreeSlot[Component], bool) {
+func (entity *EntityBehavior) getComponentSlotById(id id.Id) (*generic.FreeSlot[Component], bool) {
 	var compSlot *generic.FreeSlot[Component]
 
 	entity.componentList.Traversal(func(slot *generic.FreeSlot[Component]) bool {

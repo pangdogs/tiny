@@ -24,7 +24,7 @@ import (
 
 	"git.golaxy.org/core/event"
 	"git.golaxy.org/core/utils/generic"
-	"git.golaxy.org/tiny/utils/uid"
+	"git.golaxy.org/tiny/utils/id"
 )
 
 // Deprecated: UnsafeComponent 访问组件内部函数
@@ -39,7 +39,7 @@ type _UnsafeComponent struct {
 }
 
 // SetId 设置Id
-func (u _UnsafeComponent) SetId(id uid.Id) {
+func (u _UnsafeComponent) SetId(id id.Id) {
 	u.setId(id)
 }
 

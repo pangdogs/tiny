@@ -25,7 +25,7 @@ import (
 
 	"git.golaxy.org/core/utils/async"
 	"git.golaxy.org/core/utils/corectx"
-	"git.golaxy.org/tiny/utils/uid"
+	"git.golaxy.org/tiny/utils/id"
 )
 
 // ConcurrentEntity 多线程安全的实体接口
@@ -36,7 +36,7 @@ type ConcurrentEntity interface {
 	fmt.Stringer
 
 	// Id 获取实体Id
-	Id() uid.Id
+	Id() id.Id
 	// PT 获取实体原型信息
 	PT() EntityPT
 }

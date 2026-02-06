@@ -23,7 +23,7 @@ package runtime
 
 import (
 	event "git.golaxy.org/core/event"
-	"git.golaxy.org/tiny/utils/uid"
+	"git.golaxy.org/tiny/utils/id"
 )
 
 type iAutoEventEntityTreeAddNode interface {
@@ -37,7 +37,7 @@ func BindEventEntityTreeAddNode(auto iAutoEventEntityTreeAddNode, subscriber Eve
 	return event.Bind[EventEntityTreeAddNode](auto.EventEntityTreeAddNode(), subscriber, priority...)
 }
 
-func _EmitEventEntityTreeAddNode(auto iAutoEventEntityTreeAddNode, entityTree EntityTree, parentId, childId uid.Id) {
+func _EmitEventEntityTreeAddNode(auto iAutoEventEntityTreeAddNode, entityTree EntityTree, parentId, childId id.Id) {
 	if auto == nil {
 		event.Panicf("%w: %w: auto is nil", event.ErrEvent, event.ErrArgs)
 	}
@@ -47,7 +47,7 @@ func _EmitEventEntityTreeAddNode(auto iAutoEventEntityTreeAddNode, entityTree En
 	})
 }
 
-func _EmitEventEntityTreeAddNodeWithInterrupt(auto iAutoEventEntityTreeAddNode, interrupt func(entityTree EntityTree, parentId, childId uid.Id) bool, entityTree EntityTree, parentId, childId uid.Id) {
+func _EmitEventEntityTreeAddNodeWithInterrupt(auto iAutoEventEntityTreeAddNode, interrupt func(entityTree EntityTree, parentId, childId id.Id) bool, entityTree EntityTree, parentId, childId id.Id) {
 	if auto == nil {
 		event.Panicf("%w: %w: auto is nil", event.ErrEvent, event.ErrArgs)
 	}
@@ -62,13 +62,13 @@ func _EmitEventEntityTreeAddNodeWithInterrupt(auto iAutoEventEntityTreeAddNode, 
 	})
 }
 
-func HandleEventEntityTreeAddNode(fun func(entityTree EntityTree, parentId, childId uid.Id)) EventEntityTreeAddNodeHandler {
+func HandleEventEntityTreeAddNode(fun func(entityTree EntityTree, parentId, childId id.Id)) EventEntityTreeAddNodeHandler {
 	return EventEntityTreeAddNodeHandler(fun)
 }
 
-type EventEntityTreeAddNodeHandler func(entityTree EntityTree, parentId, childId uid.Id)
+type EventEntityTreeAddNodeHandler func(entityTree EntityTree, parentId, childId id.Id)
 
-func (h EventEntityTreeAddNodeHandler) OnEntityTreeAddNode(entityTree EntityTree, parentId, childId uid.Id) {
+func (h EventEntityTreeAddNodeHandler) OnEntityTreeAddNode(entityTree EntityTree, parentId, childId id.Id) {
 	h(entityTree, parentId, childId)
 }
 
@@ -83,7 +83,7 @@ func BindEventEntityTreeRemoveNode(auto iAutoEventEntityTreeRemoveNode, subscrib
 	return event.Bind[EventEntityTreeRemoveNode](auto.EventEntityTreeRemoveNode(), subscriber, priority...)
 }
 
-func _EmitEventEntityTreeRemoveNode(auto iAutoEventEntityTreeRemoveNode, entityTree EntityTree, parentId, childId uid.Id) {
+func _EmitEventEntityTreeRemoveNode(auto iAutoEventEntityTreeRemoveNode, entityTree EntityTree, parentId, childId id.Id) {
 	if auto == nil {
 		event.Panicf("%w: %w: auto is nil", event.ErrEvent, event.ErrArgs)
 	}
@@ -93,7 +93,7 @@ func _EmitEventEntityTreeRemoveNode(auto iAutoEventEntityTreeRemoveNode, entityT
 	})
 }
 
-func _EmitEventEntityTreeRemoveNodeWithInterrupt(auto iAutoEventEntityTreeRemoveNode, interrupt func(entityTree EntityTree, parentId, childId uid.Id) bool, entityTree EntityTree, parentId, childId uid.Id) {
+func _EmitEventEntityTreeRemoveNodeWithInterrupt(auto iAutoEventEntityTreeRemoveNode, interrupt func(entityTree EntityTree, parentId, childId id.Id) bool, entityTree EntityTree, parentId, childId id.Id) {
 	if auto == nil {
 		event.Panicf("%w: %w: auto is nil", event.ErrEvent, event.ErrArgs)
 	}
@@ -108,13 +108,13 @@ func _EmitEventEntityTreeRemoveNodeWithInterrupt(auto iAutoEventEntityTreeRemove
 	})
 }
 
-func HandleEventEntityTreeRemoveNode(fun func(entityTree EntityTree, parentId, childId uid.Id)) EventEntityTreeRemoveNodeHandler {
+func HandleEventEntityTreeRemoveNode(fun func(entityTree EntityTree, parentId, childId id.Id)) EventEntityTreeRemoveNodeHandler {
 	return EventEntityTreeRemoveNodeHandler(fun)
 }
 
-type EventEntityTreeRemoveNodeHandler func(entityTree EntityTree, parentId, childId uid.Id)
+type EventEntityTreeRemoveNodeHandler func(entityTree EntityTree, parentId, childId id.Id)
 
-func (h EventEntityTreeRemoveNodeHandler) OnEntityTreeRemoveNode(entityTree EntityTree, parentId, childId uid.Id) {
+func (h EventEntityTreeRemoveNodeHandler) OnEntityTreeRemoveNode(entityTree EntityTree, parentId, childId id.Id) {
 	h(entityTree, parentId, childId)
 }
 
@@ -129,7 +129,7 @@ func BindEventEntityTreeMoveNode(auto iAutoEventEntityTreeMoveNode, subscriber E
 	return event.Bind[EventEntityTreeMoveNode](auto.EventEntityTreeMoveNode(), subscriber, priority...)
 }
 
-func _EmitEventEntityTreeMoveNode(auto iAutoEventEntityTreeMoveNode, entityTree EntityTree, childId, fromParentId, toParentId uid.Id) {
+func _EmitEventEntityTreeMoveNode(auto iAutoEventEntityTreeMoveNode, entityTree EntityTree, childId, fromParentId, toParentId id.Id) {
 	if auto == nil {
 		event.Panicf("%w: %w: auto is nil", event.ErrEvent, event.ErrArgs)
 	}
@@ -139,7 +139,7 @@ func _EmitEventEntityTreeMoveNode(auto iAutoEventEntityTreeMoveNode, entityTree 
 	})
 }
 
-func _EmitEventEntityTreeMoveNodeWithInterrupt(auto iAutoEventEntityTreeMoveNode, interrupt func(entityTree EntityTree, childId, fromParentId, toParentId uid.Id) bool, entityTree EntityTree, childId, fromParentId, toParentId uid.Id) {
+func _EmitEventEntityTreeMoveNodeWithInterrupt(auto iAutoEventEntityTreeMoveNode, interrupt func(entityTree EntityTree, childId, fromParentId, toParentId id.Id) bool, entityTree EntityTree, childId, fromParentId, toParentId id.Id) {
 	if auto == nil {
 		event.Panicf("%w: %w: auto is nil", event.ErrEvent, event.ErrArgs)
 	}
@@ -154,12 +154,12 @@ func _EmitEventEntityTreeMoveNodeWithInterrupt(auto iAutoEventEntityTreeMoveNode
 	})
 }
 
-func HandleEventEntityTreeMoveNode(fun func(entityTree EntityTree, childId, fromParentId, toParentId uid.Id)) EventEntityTreeMoveNodeHandler {
+func HandleEventEntityTreeMoveNode(fun func(entityTree EntityTree, childId, fromParentId, toParentId id.Id)) EventEntityTreeMoveNodeHandler {
 	return EventEntityTreeMoveNodeHandler(fun)
 }
 
-type EventEntityTreeMoveNodeHandler func(entityTree EntityTree, childId, fromParentId, toParentId uid.Id)
+type EventEntityTreeMoveNodeHandler func(entityTree EntityTree, childId, fromParentId, toParentId id.Id)
 
-func (h EventEntityTreeMoveNodeHandler) OnEntityTreeMoveNode(entityTree EntityTree, childId, fromParentId, toParentId uid.Id) {
+func (h EventEntityTreeMoveNodeHandler) OnEntityTreeMoveNode(entityTree EntityTree, childId, fromParentId, toParentId id.Id) {
 	h(entityTree, childId, fromParentId, toParentId)
 }

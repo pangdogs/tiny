@@ -25,12 +25,12 @@ import (
 	"git.golaxy.org/core/utils/corectx"
 	"git.golaxy.org/core/utils/generic"
 	"git.golaxy.org/tiny/ec"
-	"git.golaxy.org/tiny/utils/uid"
+	"git.golaxy.org/tiny/utils/id"
 )
 
 var (
 	// ForestNodeId 实体树森林节点ID
-	ForestNodeId = uid.Id(-1)
+	ForestNodeId = id.Id(-1)
 	// forestNodeIdx 实体树森林节点索引
 	forestNodeIdx = -1
 )
@@ -40,48 +40,48 @@ type EntityTree interface {
 	corectx.CurrentContextProvider
 
 	// MakeRoot 创建根节点
-	MakeRoot(entityId uid.Id) error
+	MakeRoot(entityId id.Id) error
 	// AddChild 新增子节点
-	AddChild(parentId, childId uid.Id) error
+	AddChild(parentId, childId id.Id) error
 	// RemoveNode 删除子节点，会后序遍历递归删除所有子节点
-	RemoveNode(childId uid.Id) error
+	RemoveNode(childId id.Id) error
 	// DetachNode 脱离父节点，成为根节点
-	DetachNode(childId uid.Id) error
+	DetachNode(childId id.Id) error
 	// MoveNode 修改父节点
-	MoveNode(childId, parentId uid.Id) error
+	MoveNode(childId, parentId id.Id) error
 	// IsFreedom 是否是自由节点
-	IsFreedom(entityId uid.Id) (bool, error)
+	IsFreedom(entityId id.Id) (bool, error)
 	// IsRoot 是否是根节点
-	IsRoot(entityId uid.Id) (bool, error)
+	IsRoot(entityId id.Id) (bool, error)
 	// IsLeaf 是否是叶子节点
-	IsLeaf(entityId uid.Id) (bool, error)
+	IsLeaf(entityId id.Id) (bool, error)
 	// GetParent 获取父实体
-	GetParent(childId uid.Id) (ec.Entity, error)
+	GetParent(childId id.Id) (ec.Entity, error)
 	// RangeChildren 遍历所有子节点
-	RangeChildren(parentId uid.Id, fun generic.Func1[ec.Entity, bool]) error
+	RangeChildren(parentId id.Id, fun generic.Func1[ec.Entity, bool]) error
 	// EachChildren 遍历每个子节点
-	EachChildren(parentId uid.Id, fun generic.Action1[ec.Entity]) error
+	EachChildren(parentId id.Id, fun generic.Action1[ec.Entity]) error
 	// ReversedRangeChildren 反向遍历所有子节点
-	ReversedRangeChildren(parentId uid.Id, fun generic.Func1[ec.Entity, bool]) error
+	ReversedRangeChildren(parentId id.Id, fun generic.Func1[ec.Entity, bool]) error
 	// ReversedEachChildren 反向遍历每个子节点
-	ReversedEachChildren(parentId uid.Id, fun generic.Action1[ec.Entity]) error
+	ReversedEachChildren(parentId id.Id, fun generic.Action1[ec.Entity]) error
 	// FilterChildren 过滤并获取子节点
-	FilterChildren(parentId uid.Id, fun generic.Func1[ec.Entity, bool]) ([]ec.Entity, error)
+	FilterChildren(parentId id.Id, fun generic.Func1[ec.Entity, bool]) ([]ec.Entity, error)
 	// ListChildren 获取所有子节点
-	ListChildren(parentId uid.Id) ([]ec.Entity, error)
+	ListChildren(parentId id.Id) ([]ec.Entity, error)
 	// CountChildren 获取子节点数量
-	CountChildren(parentId uid.Id) (int, error)
+	CountChildren(parentId id.Id) (int, error)
 
 	IEntityTreeEventTab
 }
 
 // MakeRoot 创建根节点
-func (mgr *_EntityManager) MakeRoot(entityId uid.Id) error {
+func (mgr *_EntityManager) MakeRoot(entityId id.Id) error {
 	return mgr.AddChild(ForestNodeId, entityId)
 }
 
 // AddChild 新增子节点
-func (mgr *_EntityManager) AddChild(parentId, childId uid.Id) error {
+func (mgr *_EntityManager) AddChild(parentId, childId id.Id) error {
 	parentSlotIdx, parentTreeNode := mgr.getTreeNode(parentId)
 	if parentSlotIdx < 0 {
 		if parentTreeNode == nil {
@@ -160,7 +160,7 @@ func (mgr *_EntityManager) AddChild(parentId, childId uid.Id) error {
 }
 
 // RemoveNode 删除子节点，会后序遍历递归删除所有子节点
-func (mgr *_EntityManager) RemoveNode(childId uid.Id) error {
+func (mgr *_EntityManager) RemoveNode(childId id.Id) error {
 	childSlotIdx, childTreeNode := mgr.getTreeNode(childId)
 	if childSlotIdx < 0 {
 		return fmt.Errorf("%w: child entity %q not exists", ErrEntityTree, childId)
@@ -232,12 +232,12 @@ func (mgr *_EntityManager) RemoveNode(childId uid.Id) error {
 }
 
 // DetachNode 脱离父节点，成为根节点
-func (mgr *_EntityManager) DetachNode(childId uid.Id) error {
+func (mgr *_EntityManager) DetachNode(childId id.Id) error {
 	return mgr.MoveNode(childId, ForestNodeId)
 }
 
 // MoveNode 修改父节点
-func (mgr *_EntityManager) MoveNode(childId, parentId uid.Id) error {
+func (mgr *_EntityManager) MoveNode(childId, parentId id.Id) error {
 	toParentSlotIdx, toParentTreeNode := mgr.getTreeNode(parentId)
 	if toParentSlotIdx < 0 {
 		if toParentTreeNode == nil {
@@ -346,7 +346,7 @@ func (mgr *_EntityManager) MoveNode(childId, parentId uid.Id) error {
 }
 
 // IsFreedom 是否是自由节点
-func (mgr *_EntityManager) IsFreedom(entityId uid.Id) (bool, error) {
+func (mgr *_EntityManager) IsFreedom(entityId id.Id) (bool, error) {
 	slotIdx, treeNode := mgr.getTreeNode(entityId)
 	if slotIdx < 0 {
 		return false, fmt.Errorf("%w: entity %q not exists", ErrEntityTree, entityId)
@@ -355,7 +355,7 @@ func (mgr *_EntityManager) IsFreedom(entityId uid.Id) (bool, error) {
 }
 
 // IsRoot 是否是根节点
-func (mgr *_EntityManager) IsRoot(entityId uid.Id) (bool, error) {
+func (mgr *_EntityManager) IsRoot(entityId id.Id) (bool, error) {
 	slotIdx, treeNode := mgr.getTreeNode(entityId)
 	if slotIdx < 0 {
 		return false, fmt.Errorf("%w: entity %q not exists", ErrEntityTree, entityId)
@@ -367,7 +367,7 @@ func (mgr *_EntityManager) IsRoot(entityId uid.Id) (bool, error) {
 }
 
 // IsLeaf 是否是叶子节点
-func (mgr *_EntityManager) IsLeaf(entityId uid.Id) (bool, error) {
+func (mgr *_EntityManager) IsLeaf(entityId id.Id) (bool, error) {
 	slotIdx, treeNode := mgr.getTreeNode(entityId)
 	if slotIdx < 0 {
 		return false, fmt.Errorf("%w: entity %q not exists", ErrEntityTree, entityId)
@@ -379,7 +379,7 @@ func (mgr *_EntityManager) IsLeaf(entityId uid.Id) (bool, error) {
 }
 
 // GetParent 获取父实体
-func (mgr *_EntityManager) GetParent(childId uid.Id) (ec.Entity, error) {
+func (mgr *_EntityManager) GetParent(childId id.Id) (ec.Entity, error) {
 	slotIdx, treeNode := mgr.getTreeNode(childId)
 	if slotIdx < 0 {
 		return nil, fmt.Errorf("%w: child entity %q not exists", ErrEntityTree, childId)
@@ -394,7 +394,7 @@ func (mgr *_EntityManager) GetParent(childId uid.Id) (ec.Entity, error) {
 }
 
 // RangeChildren 遍历所有子节点
-func (mgr *_EntityManager) RangeChildren(parentId uid.Id, fun generic.Func1[ec.Entity, bool]) error {
+func (mgr *_EntityManager) RangeChildren(parentId id.Id, fun generic.Func1[ec.Entity, bool]) error {
 	_, treeNode := mgr.getTreeNode(parentId)
 	if treeNode == nil {
 		return fmt.Errorf("%w: parent entity %q not in the entity-tree", ErrEntityTree, parentId)
@@ -406,7 +406,7 @@ func (mgr *_EntityManager) RangeChildren(parentId uid.Id, fun generic.Func1[ec.E
 }
 
 // EachChildren 遍历每个子节点
-func (mgr *_EntityManager) EachChildren(parentId uid.Id, fun generic.Action1[ec.Entity]) error {
+func (mgr *_EntityManager) EachChildren(parentId id.Id, fun generic.Action1[ec.Entity]) error {
 	_, treeNode := mgr.getTreeNode(parentId)
 	if treeNode == nil {
 		return fmt.Errorf("%w: parent entity %q not in the entity-tree", ErrEntityTree, parentId)
@@ -418,7 +418,7 @@ func (mgr *_EntityManager) EachChildren(parentId uid.Id, fun generic.Action1[ec.
 }
 
 // ReversedRangeChildren 反向遍历所有子节点
-func (mgr *_EntityManager) ReversedRangeChildren(parentId uid.Id, fun generic.Func1[ec.Entity, bool]) error {
+func (mgr *_EntityManager) ReversedRangeChildren(parentId id.Id, fun generic.Func1[ec.Entity, bool]) error {
 	_, treeNode := mgr.getTreeNode(parentId)
 	if treeNode == nil {
 		return fmt.Errorf("%w: parent entity %q not in the entity-tree", ErrEntityTree, parentId)
@@ -430,7 +430,7 @@ func (mgr *_EntityManager) ReversedRangeChildren(parentId uid.Id, fun generic.Fu
 }
 
 // ReversedEachChildren 反向遍历每个子节点
-func (mgr *_EntityManager) ReversedEachChildren(parentId uid.Id, fun generic.Action1[ec.Entity]) error {
+func (mgr *_EntityManager) ReversedEachChildren(parentId id.Id, fun generic.Action1[ec.Entity]) error {
 	_, treeNode := mgr.getTreeNode(parentId)
 	if treeNode == nil {
 		return fmt.Errorf("%w: parent entity %q not in the entity-tree", ErrEntityTree, parentId)
@@ -442,7 +442,7 @@ func (mgr *_EntityManager) ReversedEachChildren(parentId uid.Id, fun generic.Act
 }
 
 // FilterChildren 过滤并获取子节点
-func (mgr *_EntityManager) FilterChildren(parentId uid.Id, fun generic.Func1[ec.Entity, bool]) ([]ec.Entity, error) {
+func (mgr *_EntityManager) FilterChildren(parentId id.Id, fun generic.Func1[ec.Entity, bool]) ([]ec.Entity, error) {
 	_, treeNode := mgr.getTreeNode(parentId)
 	if treeNode == nil {
 		return nil, fmt.Errorf("%w: parent entity %q not in the entity-tree", ErrEntityTree, parentId)
@@ -465,7 +465,7 @@ func (mgr *_EntityManager) FilterChildren(parentId uid.Id, fun generic.Func1[ec.
 }
 
 // ListChildren 获取所有子节点
-func (mgr *_EntityManager) ListChildren(parentId uid.Id) ([]ec.Entity, error) {
+func (mgr *_EntityManager) ListChildren(parentId id.Id) ([]ec.Entity, error) {
 	_, treeNode := mgr.getTreeNode(parentId)
 	if treeNode == nil {
 		return nil, fmt.Errorf("%w: parent entity %q not in the entity-tree", ErrEntityTree, parentId)
@@ -481,7 +481,7 @@ func (mgr *_EntityManager) ListChildren(parentId uid.Id) ([]ec.Entity, error) {
 }
 
 // CountChildren 获取子节点数量
-func (mgr *_EntityManager) CountChildren(parentId uid.Id) (int, error) {
+func (mgr *_EntityManager) CountChildren(parentId id.Id) (int, error) {
 	_, treeNode := mgr.getTreeNode(parentId)
 	if treeNode == nil {
 		return 0, fmt.Errorf("%w: parent entity %q not in the entity-tree", ErrEntityTree, parentId)
@@ -489,7 +489,7 @@ func (mgr *_EntityManager) CountChildren(parentId uid.Id) (int, error) {
 	return treeNode.children.Len() - treeNode.children.OrphanCount(), nil
 }
 
-func (mgr *_EntityManager) onEntityDestroyRemoveNode(childId uid.Id) {
+func (mgr *_EntityManager) onEntityDestroyRemoveNode(childId id.Id) {
 	childSlotIdx, childTreeNode := mgr.getTreeNode(childId)
 	if childSlotIdx < 0 {
 		return
@@ -530,7 +530,7 @@ func (mgr *_EntityManager) onEntityDestroyRemoveNode(childId uid.Id) {
 	ec.UnsafeEntity(childEntity).SetTreeNodeState(ec.TreeNodeState_Freedom)
 }
 
-func (mgr *_EntityManager) getTreeNode(entityId uid.Id) (int, *_TreeNode) {
+func (mgr *_EntityManager) getTreeNode(entityId id.Id) (int, *_TreeNode) {
 	if entityId == ForestNodeId {
 		return forestNodeIdx, mgr.entityTreeNodes[forestNodeIdx]
 	}

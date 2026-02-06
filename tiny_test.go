@@ -32,7 +32,7 @@ import (
 	"git.golaxy.org/tiny/ec/pt"
 	"git.golaxy.org/tiny/runtime"
 	"git.golaxy.org/tiny/utils/assertion"
-	"git.golaxy.org/tiny/utils/uid"
+	"git.golaxy.org/tiny/utils/id"
 	"github.com/elliotchance/pie/v2"
 )
 
@@ -442,11 +442,11 @@ func (c *ComponentTestParent) Awake() {
 	ec.BindEventTreeNodeRemoveChild(c.Entity(), c)
 }
 
-func (c *ComponentTestParent) OnTreeNodeAddChild(entity ec.Entity, childId uid.Id) {
+func (c *ComponentTestParent) OnTreeNodeAddChild(entity ec.Entity, childId id.Id) {
 	log.Printf("OnTreeNodeAddChild %s <- %s", entity.Id(), childId)
 }
 
-func (c *ComponentTestParent) OnTreeNodeRemoveChild(entity ec.Entity, childId uid.Id) {
+func (c *ComponentTestParent) OnTreeNodeRemoveChild(entity ec.Entity, childId id.Id) {
 	log.Printf("OnTreeNodeRemoveChild %s x- %s", entity.Id(), childId)
 }
 
@@ -459,11 +459,11 @@ func (c *ComponentTestChild) Awake() {
 	ec.BindEventTreeNodeDetachParent(c.Entity(), c)
 }
 
-func (c *ComponentTestChild) OnTreeNodeAttachParent(entity ec.Entity, parentId uid.Id) {
+func (c *ComponentTestChild) OnTreeNodeAttachParent(entity ec.Entity, parentId id.Id) {
 	log.Printf("OnTreeNodeAttachParent %s -> %s", entity.Id(), parentId)
 }
 
-func (c *ComponentTestChild) OnTreeNodeDetachParent(entity ec.Entity, parentId uid.Id) {
+func (c *ComponentTestChild) OnTreeNodeDetachParent(entity ec.Entity, parentId id.Id) {
 	log.Printf("OnTreeNodeDetachParent %s -x %s", entity.Id(), parentId)
 }
 
@@ -519,8 +519,8 @@ func Test_EntityTree(t *testing.T) {
 					AddComponent(ComponentTestChild{}).
 					Declare()
 			case runtime.RunningEvent_Starting:
-				runtime.BindEventEntityTreeAddNode(ctx.EntityTree(), runtime.HandleEventEntityTreeAddNode(func(entityTree runtime.EntityTree, parentId, childId uid.Id) {
-					var children []uid.Id
+				runtime.BindEventEntityTreeAddNode(ctx.EntityTree(), runtime.HandleEventEntityTreeAddNode(func(entityTree runtime.EntityTree, parentId, childId id.Id) {
+					var children []id.Id
 
 					entityTree.EachChildren(parentId, func(entity ec.Entity) {
 						children = append(children, entity.Id())
@@ -528,8 +528,8 @@ func Test_EntityTree(t *testing.T) {
 
 					log.Printf("OnEntityTreeAddNode %s: %v + %s", parentId, children, childId)
 				}))
-				runtime.BindEventEntityTreeRemoveNode(ctx.EntityTree(), runtime.HandleEventEntityTreeRemoveNode(func(entityTree runtime.EntityTree, parentId, childId uid.Id) {
-					var children []uid.Id
+				runtime.BindEventEntityTreeRemoveNode(ctx.EntityTree(), runtime.HandleEventEntityTreeRemoveNode(func(entityTree runtime.EntityTree, parentId, childId id.Id) {
+					var children []id.Id
 
 					entityTree.EachChildren(parentId, func(entity ec.Entity) {
 						children = append(children, entity.Id())
@@ -537,7 +537,7 @@ func Test_EntityTree(t *testing.T) {
 
 					log.Printf("OnEntityTreeRemoveNode %s: %v - %s", parentId, children, childId)
 				}))
-				runtime.BindEventEntityTreeMoveNode(ctx.EntityTree(), runtime.HandleEventEntityTreeMoveNode(func(entityTree runtime.EntityTree, childId, fromParentId, toParentId uid.Id) {
+				runtime.BindEventEntityTreeMoveNode(ctx.EntityTree(), runtime.HandleEventEntityTreeMoveNode(func(entityTree runtime.EntityTree, childId, fromParentId, toParentId id.Id) {
 					log.Printf("OnEntityTreeMoveNode %s: %s => %s", childId, fromParentId, toParentId)
 				}))
 			case runtime.RunningEvent_Started:
@@ -649,7 +649,7 @@ func (c *ComponentTestChildDetachInAttaching) Awake() {
 	ec.BindEventTreeNodeDetachParent(c.Entity(), c)
 }
 
-func (c *ComponentTestChildDetachInAttaching) OnTreeNodeAttachParent(entity ec.Entity, parentId uid.Id) {
+func (c *ComponentTestChildDetachInAttaching) OnTreeNodeAttachParent(entity ec.Entity, parentId id.Id) {
 	log.Printf("OnTreeNodeAttachParent %s -> %s", entity.Id(), parentId)
 
 	err := runtime.Current(entity).EntityTree().DetachNode(entity.Id())
@@ -658,7 +658,7 @@ func (c *ComponentTestChildDetachInAttaching) OnTreeNodeAttachParent(entity ec.E
 	}
 }
 
-func (c *ComponentTestChildDetachInAttaching) OnTreeNodeDetachParent(entity ec.Entity, parentId uid.Id) {
+func (c *ComponentTestChildDetachInAttaching) OnTreeNodeDetachParent(entity ec.Entity, parentId id.Id) {
 	log.Printf("OnTreeNodeDetachParent %s -x %s", entity.Id(), parentId)
 }
 
@@ -671,7 +671,7 @@ func (c *ComponentTestChildRemoveInAttaching) Awake() {
 	ec.BindEventTreeNodeDetachParent(c.Entity(), c)
 }
 
-func (c *ComponentTestChildRemoveInAttaching) OnTreeNodeAttachParent(entity ec.Entity, parentId uid.Id) {
+func (c *ComponentTestChildRemoveInAttaching) OnTreeNodeAttachParent(entity ec.Entity, parentId id.Id) {
 	log.Printf("OnTreeNodeAttachParent %s -> %s", entity.Id(), parentId)
 
 	err := runtime.Current(entity).EntityTree().RemoveNode(entity.Id())
@@ -680,7 +680,7 @@ func (c *ComponentTestChildRemoveInAttaching) OnTreeNodeAttachParent(entity ec.E
 	}
 }
 
-func (c *ComponentTestChildRemoveInAttaching) OnTreeNodeDetachParent(entity ec.Entity, parentId uid.Id) {
+func (c *ComponentTestChildRemoveInAttaching) OnTreeNodeDetachParent(entity ec.Entity, parentId id.Id) {
 	log.Printf("OnTreeNodeDetachParent %s -x %s", entity.Id(), parentId)
 }
 
@@ -693,12 +693,12 @@ func (c *ComponentTestChildDestroyInAttaching) Awake() {
 	ec.BindEventTreeNodeDetachParent(c.Entity(), c)
 }
 
-func (c *ComponentTestChildDestroyInAttaching) OnTreeNodeAttachParent(entity ec.Entity, parentId uid.Id) {
+func (c *ComponentTestChildDestroyInAttaching) OnTreeNodeAttachParent(entity ec.Entity, parentId id.Id) {
 	log.Printf("OnTreeNodeAttachParent %s -> %s", entity.Id(), parentId)
 	entity.Destroy()
 }
 
-func (c *ComponentTestChildDestroyInAttaching) OnTreeNodeDetachParent(entity ec.Entity, parentId uid.Id) {
+func (c *ComponentTestChildDestroyInAttaching) OnTreeNodeDetachParent(entity ec.Entity, parentId id.Id) {
 	log.Printf("OnTreeNodeDetachParent %s -x %s", entity.Id(), parentId)
 }
 
@@ -711,11 +711,11 @@ func (c *ComponentTestChildDestroyInDetaching) Awake() {
 	ec.BindEventTreeNodeDetachParent(c.Entity(), c)
 }
 
-func (c *ComponentTestChildDestroyInDetaching) OnTreeNodeAttachParent(entity ec.Entity, parentId uid.Id) {
+func (c *ComponentTestChildDestroyInDetaching) OnTreeNodeAttachParent(entity ec.Entity, parentId id.Id) {
 	log.Printf("OnTreeNodeAttachParent %s -> %s", entity.Id(), parentId)
 }
 
-func (c *ComponentTestChildDestroyInDetaching) OnTreeNodeDetachParent(entity ec.Entity, parentId uid.Id) {
+func (c *ComponentTestChildDestroyInDetaching) OnTreeNodeDetachParent(entity ec.Entity, parentId id.Id) {
 	log.Printf("OnTreeNodeDetachParent %s -x %s", entity.Id(), parentId)
 	entity.Destroy()
 }
@@ -729,12 +729,12 @@ func (c *ComponentTestParentDestroyInAttaching) Awake() {
 	ec.BindEventTreeNodeRemoveChild(c.Entity(), c)
 }
 
-func (c *ComponentTestParentDestroyInAttaching) OnTreeNodeAddChild(entity ec.Entity, childId uid.Id) {
+func (c *ComponentTestParentDestroyInAttaching) OnTreeNodeAddChild(entity ec.Entity, childId id.Id) {
 	log.Printf("OnTreeNodeAddChild %s <- %s", entity.Id(), childId)
 	entity.Destroy()
 }
 
-func (c *ComponentTestParentDestroyInAttaching) OnTreeNodeRemoveChild(entity ec.Entity, childId uid.Id) {
+func (c *ComponentTestParentDestroyInAttaching) OnTreeNodeRemoveChild(entity ec.Entity, childId id.Id) {
 	log.Printf("OnTreeNodeRemoveChild %s x- %s", entity.Id(), childId)
 }
 
@@ -747,11 +747,11 @@ func (c *ComponentTestParentDestroyInDetaching) Awake() {
 	ec.BindEventTreeNodeRemoveChild(c.Entity(), c)
 }
 
-func (c *ComponentTestParentDestroyInDetaching) OnTreeNodeAddChild(entity ec.Entity, childId uid.Id) {
+func (c *ComponentTestParentDestroyInDetaching) OnTreeNodeAddChild(entity ec.Entity, childId id.Id) {
 	log.Printf("OnTreeNodeAddChild %s <- %s", entity.Id(), childId)
 }
 
-func (c *ComponentTestParentDestroyInDetaching) OnTreeNodeRemoveChild(entity ec.Entity, childId uid.Id) {
+func (c *ComponentTestParentDestroyInDetaching) OnTreeNodeRemoveChild(entity ec.Entity, childId id.Id) {
 	log.Printf("OnTreeNodeRemoveChild %s x- %s", entity.Id(), childId)
 	entity.Destroy()
 }
@@ -793,8 +793,8 @@ func Test_EntityTreeSequence(t *testing.T) {
 					AddComponent(ComponentTestChild{}).
 					Declare()
 			case runtime.RunningEvent_Starting:
-				runtime.BindEventEntityTreeAddNode(ctx.EntityTree(), runtime.HandleEventEntityTreeAddNode(func(entityTree runtime.EntityTree, parentId, childId uid.Id) {
-					var children []uid.Id
+				runtime.BindEventEntityTreeAddNode(ctx.EntityTree(), runtime.HandleEventEntityTreeAddNode(func(entityTree runtime.EntityTree, parentId, childId id.Id) {
+					var children []id.Id
 
 					entityTree.EachChildren(parentId, func(entity ec.Entity) {
 						children = append(children, entity.Id())
@@ -802,8 +802,8 @@ func Test_EntityTreeSequence(t *testing.T) {
 
 					log.Printf("OnEntityTreeAddNode %s: %v + %s", parentId, children, childId)
 				}))
-				runtime.BindEventEntityTreeRemoveNode(ctx.EntityTree(), runtime.HandleEventEntityTreeRemoveNode(func(entityTree runtime.EntityTree, parentId, childId uid.Id) {
-					var children []uid.Id
+				runtime.BindEventEntityTreeRemoveNode(ctx.EntityTree(), runtime.HandleEventEntityTreeRemoveNode(func(entityTree runtime.EntityTree, parentId, childId id.Id) {
+					var children []id.Id
 
 					entityTree.EachChildren(parentId, func(entity ec.Entity) {
 						children = append(children, entity.Id())
@@ -811,7 +811,7 @@ func Test_EntityTreeSequence(t *testing.T) {
 
 					log.Printf("OnEntityTreeRemoveNode %s: %v - %s", parentId, children, childId)
 				}))
-				runtime.BindEventEntityTreeMoveNode(ctx.EntityTree(), runtime.HandleEventEntityTreeMoveNode(func(entityTree runtime.EntityTree, childId, fromParentId, toParentId uid.Id) {
+				runtime.BindEventEntityTreeMoveNode(ctx.EntityTree(), runtime.HandleEventEntityTreeMoveNode(func(entityTree runtime.EntityTree, childId, fromParentId, toParentId id.Id) {
 					log.Printf("OnEntityTreeMoveNode %s: %s => %s", childId, fromParentId, toParentId)
 				}))
 			case runtime.RunningEvent_Started:

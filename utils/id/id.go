@@ -17,7 +17,7 @@
  * Copyright (c) 2024 pangdogs.
  */
 
-package uid
+package id
 
 import "strconv"
 
@@ -26,7 +26,7 @@ var (
 	Nil Id = 0
 )
 
-// Id represents a unique id.
+// Id represents a locally unique id.
 type Id int64
 
 // IsNil checks if an Id is nil.
