@@ -33,13 +33,17 @@ var (
 	ErrTaskQueueFull   = fmt.Errorf("%w: task queue is full", ErrRuntime)   // 任务处理流水线已满
 )
 
+type _TaskQueueStats struct {
+	enqueued  atomic.Int64
+	pending   atomic.Int64
+	rejected  atomic.Int64
+	completed atomic.Int64
+}
+
 type _TaskQueue struct {
-	boundedChan    chan _Task
-	unboundedChan  *generic.UnboundedChannel[_Task]
-	callEnqueued   atomic.Int64
-	callCompleted  atomic.Int64
-	frameEnqueued  atomic.Int64
-	frameCompleted atomic.Int64
+	boundedChan   chan _Task
+	unboundedChan *generic.UnboundedChannel[_Task]
+	stats         [2]_TaskQueueStats
 }
 
 func (q *_TaskQueue) init(enable, unbounded bool, capacity int) {
@@ -55,9 +59,9 @@ func (q *_TaskQueue) init(enable, unbounded bool, capacity int) {
 	}
 }
 
-func (q *_TaskQueue) pushCall(fun generic.FuncVar0[any, async.Ret], action generic.ActionVar0[any], delegate generic.DelegateVar0[any, async.Ret], delegateVoid generic.DelegateVoidVar0[any], args []any) (asyncRet async.AsyncRet) {
+func (q *_TaskQueue) enqueueCall(fun generic.FuncVar0[any, async.Ret], action generic.ActionVar0[any], delegate generic.DelegateVar0[any, async.Ret], delegateVoid generic.DelegateVoidVar0[any], args []any) (asyncRet async.AsyncRet) {
 	task := _Task{
-		typ:          _TaskType_Call,
+		typ:          TaskType_Call,
 		fun:          fun,
 		action:       action,
 		delegate:     delegate,
@@ -68,62 +72,73 @@ func (q *_TaskQueue) pushCall(fun generic.FuncVar0[any, async.Ret], action gener
 
 	defer func() {
 		if panicInfo := recover(); panicInfo != nil {
+			q.stats[TaskType_Call].rejected.Add(1)
 			asyncRet = async.Return(task.asyncRet, async.NewRet(nil, ErrTaskQueueClosed))
 		}
 	}()
 
+	q.stats[TaskType_Call].enqueued.Add(1)
+
 	if q.boundedChan != nil {
 		select {
 		case q.boundedChan <- task:
-			q.callEnqueued.Add(1)
+			q.stats[TaskType_Call].pending.Add(1)
 			return task.asyncRet
 		default:
+			q.stats[TaskType_Call].rejected.Add(1)
 			return async.Return(task.asyncRet, async.NewRet(nil, ErrTaskQueueFull))
 		}
 	}
 
 	if q.unboundedChan != nil {
 		q.unboundedChan.In() <- task
-		q.callEnqueued.Add(1)
+		q.stats[TaskType_Call].pending.Add(1)
 		return task.asyncRet
 	}
 
+	q.stats[TaskType_Call].rejected.Add(1)
 	return async.Return(task.asyncRet, async.NewRet(nil, ErrTaskQueueClosed))
 }
 
-func (q *_TaskQueue) pushFrame(ctx context.Context, action generic.ActionVar0[any], done chan struct{}) bool {
+func (q *_TaskQueue) enqueueFrame(ctx context.Context, action generic.ActionVar0[any], done chan struct{}) bool {
 	task := _Task{
-		typ:    _TaskType_Frame,
+		typ:    TaskType_Frame,
 		action: action,
 		done:   done,
 	}
 
+	q.stats[TaskType_Frame].enqueued.Add(1)
+
 	if q.boundedChan != nil {
 		select {
 		case q.boundedChan <- task:
-			q.frameEnqueued.Add(1)
+			q.stats[TaskType_Frame].pending.Add(1)
 			select {
 			case <-done:
 				return true
 			case <-ctx.Done():
+				q.stats[TaskType_Frame].rejected.Add(1)
 				return false
 			}
 		case <-ctx.Done():
+			q.stats[TaskType_Frame].rejected.Add(1)
 			return false
 		}
 	}
 
 	if q.unboundedChan != nil {
 		q.unboundedChan.In() <- task
-		q.frameEnqueued.Add(1)
+		q.stats[TaskType_Frame].pending.Add(1)
 		select {
 		case <-done:
 			return true
 		case <-ctx.Done():
+			q.stats[TaskType_Frame].rejected.Add(1)
 			return false
 		}
 	}
 
+	q.stats[TaskType_Frame].rejected.Add(1)
 	return false
 }
 
@@ -137,13 +152,9 @@ func (q *_TaskQueue) out() <-chan _Task {
 	return nil
 }
 
-func (q *_TaskQueue) complete(typ _TaskType) {
-	switch typ {
-	case _TaskType_Call:
-		q.callCompleted.Add(1)
-	case _TaskType_Frame:
-		q.frameCompleted.Add(1)
-	}
+func (q *_TaskQueue) complete(typ TaskType) {
+	q.stats[typ].pending.Add(-1)
+	q.stats[typ].completed.Add(1)
 }
 
 func (q *_TaskQueue) close() {
