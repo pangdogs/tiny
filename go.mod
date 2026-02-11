@@ -3,7 +3,7 @@ module git.golaxy.org/tiny
 go 1.25
 
 require (
-	git.golaxy.org/core v0.4.25-0.20260207105923-531db2c0f878
+	git.golaxy.org/core v0.4.25-0.20260211080156-e2afc71bc00b
 	github.com/elliotchance/pie/v2 v2.9.1
 )
 
