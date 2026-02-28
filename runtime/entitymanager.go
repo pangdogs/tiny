@@ -35,6 +35,10 @@ import (
 type EntityManager interface {
 	corectx.CurrentContextProvider
 
+	// AddEntity 添加实体
+	AddEntity(entity ec.Entity) error
+	// RemoveEntity 删除实体
+	RemoveEntity(id id.Id)
 	// GetEntity 查询实体
 	GetEntity(id id.Id) (ec.Entity, bool)
 	// RangeEntities 遍历所有实体
@@ -51,10 +55,6 @@ type EntityManager interface {
 	ListEntities() []ec.Entity
 	// CountEntities 获取实体数量
 	CountEntities() int
-	// AddEntity 添加实体
-	AddEntity(entity ec.Entity) error
-	// RemoveEntity 删除实体
-	RemoveEntity(id id.Id)
 
 	IEntityManagerEventTab
 }
@@ -84,6 +84,46 @@ func (mgr *_EntityManager) CurrentContext() iface.Cache {
 // ConcurrentContext 获取多线程安全的上下文
 func (mgr *_EntityManager) ConcurrentContext() iface.Cache {
 	return mgr.ctx.ConcurrentContext()
+}
+
+// AddEntity 添加实体
+func (mgr *_EntityManager) AddEntity(entity ec.Entity) error {
+	if entity == nil {
+		exception.Panicf("%w: %w: entity is nil", ErrEntityManager, exception.ErrArgs)
+	}
+
+	if entity.State() != ec.EntityState_Birth {
+		return fmt.Errorf("%w: invalid entity %q state %q", ErrEntityManager, entity.Id(), entity.State())
+	}
+
+	mgr.initEntity(entity)
+
+	if _, ok := mgr.entityIdIndex[entity.Id()]; ok {
+		return fmt.Errorf("%w: entity %q already exists in entity-manager", ErrEntityManager, entity.Id())
+	}
+
+	entitySlot := mgr.entityList.PushBack(entity)
+	mgr.entityIdIndex[entity.Id()] = entitySlot.Index()
+
+	ec.UnsafeEntity(entity).SetState(ec.EntityState_Enter)
+	ec.UnsafeEntity(entity).SetEnteredHandle(entitySlot.Index(), entitySlot.Version())
+	ec.UnsafeEntity(entity).SetTreeNodeState(ec.TreeNodeState_Freedom)
+
+	mgr.observeEntity(entity)
+
+	_EmitEventEntityManagerAddEntity(mgr, mgr, entity)
+
+	return nil
+}
+
+// RemoveEntity 删除实体
+func (mgr *_EntityManager) RemoveEntity(id id.Id) {
+	slotIdx, ok := mgr.entityIdIndex[id]
+	if !ok {
+		return
+	}
+	entity := mgr.entityList.Get(slotIdx).V
+	entity.Destroy()
 }
 
 // GetEntity 查询实体
@@ -149,46 +189,6 @@ func (mgr *_EntityManager) ListEntities() []ec.Entity {
 // CountEntities 获取实体数量
 func (mgr *_EntityManager) CountEntities() int {
 	return mgr.entityList.Len() - mgr.entityList.OrphanCount()
-}
-
-// AddEntity 添加实体
-func (mgr *_EntityManager) AddEntity(entity ec.Entity) error {
-	if entity == nil {
-		exception.Panicf("%w: %w: entity is nil", ErrEntityManager, exception.ErrArgs)
-	}
-
-	if entity.State() != ec.EntityState_Birth {
-		return fmt.Errorf("%w: invalid entity %q state %q", ErrEntityManager, entity.Id(), entity.State())
-	}
-
-	mgr.initEntity(entity)
-
-	if _, ok := mgr.entityIdIndex[entity.Id()]; ok {
-		return fmt.Errorf("%w: entity %q already exists in entity-manager", ErrEntityManager, entity.Id())
-	}
-
-	entitySlot := mgr.entityList.PushBack(entity)
-	mgr.entityIdIndex[entity.Id()] = entitySlot.Index()
-
-	ec.UnsafeEntity(entity).SetState(ec.EntityState_Enter)
-	ec.UnsafeEntity(entity).SetEnteredHandle(entitySlot.Index(), entitySlot.Version())
-	ec.UnsafeEntity(entity).SetTreeNodeState(ec.TreeNodeState_Freedom)
-
-	mgr.observeEntity(entity)
-
-	_EmitEventEntityManagerAddEntity(mgr, mgr, entity)
-
-	return nil
-}
-
-// RemoveEntity 删除实体
-func (mgr *_EntityManager) RemoveEntity(id id.Id) {
-	slotIdx, ok := mgr.entityIdIndex[id]
-	if !ok {
-		return
-	}
-	entity := mgr.entityList.Get(slotIdx).V
-	entity.Destroy()
 }
 
 func (mgr *_EntityManager) OnEntityDestroy(entity ec.Entity) {
