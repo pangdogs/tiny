@@ -1030,6 +1030,10 @@ func (RuntimeAddIn1) OnContextRunningEvent(ctx runtime.Context, runningEvent run
 	log.Println("RuntimeAddIn1 OnContextRunningEvent:", runningEvent)
 }
 
+func (RuntimeAddIn1) Hello() {
+	log.Println("RuntimeAddIn1 Hello")
+}
+
 func NewRuntimeAddIn1(...any) *RuntimeAddIn1 {
 	return &RuntimeAddIn1{}
 }
@@ -1047,6 +1051,8 @@ func Test_RuntimeAddIn(t *testing.T) {
 			switch runningEvent {
 			case runtime.RunningEvent_Birth:
 				runtimeAddIn1.Install(ctx)
+			case runtime.RunningEvent_Started:
+				runtimeAddIn1.Require(ctx).Hello()
 			}
 			log.Println("runtime event:", runningEvent, args)
 		}),
