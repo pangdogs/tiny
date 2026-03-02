@@ -114,7 +114,7 @@ type _EntityJSON struct {
 }
 
 // MarshalJSON implements json.Marshaler
-func (pt _Entity) MarshalJSON() ([]byte, error) {
+func (pt *_Entity) MarshalJSON() ([]byte, error) {
 	entityStringer := _EntityJSON{
 		Prototype:                  pt.prototype,
 		ComponentAwakeOnFirstTouch: pt.componentAwakeOnFirstTouch,
