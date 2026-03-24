@@ -167,7 +167,7 @@ func Test_ServiceRegisterEntityPT(t *testing.T) {
 		}),
 	)
 
-	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enabled(false))).Run()
+	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enabled(false))).Run().Done()
 }
 
 func Test_CreateEntity(t *testing.T) {
@@ -201,7 +201,7 @@ func Test_CreateEntity(t *testing.T) {
 		}),
 	)
 
-	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enabled(false))).Run()
+	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enabled(false))).Run().Done()
 }
 
 type ComponentTestEnable1 struct {
@@ -341,7 +341,7 @@ func Test_EntityComponentEnable(t *testing.T) {
 		}),
 	)
 
-	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enabled(false))).Run()
+	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enabled(false))).Run().Done()
 }
 
 type ComponentTestDynamic1 struct {
@@ -430,7 +430,7 @@ func Test_EntityDynamicComponent(t *testing.T) {
 		}),
 	)
 
-	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enabled(false))).Run()
+	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enabled(false))).Run().Done()
 }
 
 type ComponentTestParent struct {
@@ -637,7 +637,7 @@ func Test_EntityTree(t *testing.T) {
 		}),
 	)
 
-	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enabled(false))).Run()
+	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enabled(false))).Run().Done()
 }
 
 type ComponentTestChildDetachInAttaching struct {
@@ -936,7 +936,7 @@ func Test_EntityTreeSequence(t *testing.T) {
 		}),
 	)
 
-	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enabled(false))).Run()
+	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enabled(false))).Run().Done()
 }
 
 type ComponentTestFrameUpdate struct {
@@ -972,7 +972,7 @@ func Test_CreateEntityFrameUpdate(t *testing.T) {
 		}),
 	)
 
-	<-tiny.NewRuntime(rtCtx).Run()
+	<-tiny.NewRuntime(rtCtx).Run().Done()
 }
 
 type ComponentTestStressFrameUpdate struct {
@@ -1013,7 +1013,7 @@ func Test_CreateEntityStressFrameUpdate(t *testing.T) {
 		}),
 	)
 
-	<-tiny.NewRuntime(rtCtx).Run()
+	<-tiny.NewRuntime(rtCtx).Run().Done()
 }
 
 type RuntimeAddIn1 struct{}
@@ -1058,5 +1058,5 @@ func Test_RuntimeAddIn(t *testing.T) {
 		}),
 	)
 
-	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enabled(false))).Run()
+	<-tiny.NewRuntime(rtCtx, tiny.With.Runtime.Frame(tiny.With.Frame.Enabled(false))).Run().Done()
 }

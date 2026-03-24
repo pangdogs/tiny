@@ -26,6 +26,7 @@ import (
 
 	"git.golaxy.org/core/utils/async"
 	"git.golaxy.org/core/utils/generic"
+	"git.golaxy.org/tiny/runtime"
 )
 
 var (
@@ -59,7 +60,13 @@ func (q *_TaskQueue) init(enable, unbounded bool, capacity int) {
 	}
 }
 
-func (q *_TaskQueue) enqueueCall(fun generic.FuncVar0[any, async.Ret], action generic.ActionVar0[any], delegate generic.DelegateVar0[any, async.Ret], delegateVoid generic.DelegateVoidVar0[any], args []any) (asyncRet async.AsyncRet) {
+func (q *_TaskQueue) enqueueCall(
+	fun generic.FuncVar1[runtime.Context, any, async.Result],
+	action generic.ActionVar1[runtime.Context, any],
+	delegate generic.DelegateVar1[runtime.Context, any, async.Result],
+	delegateVoid generic.DelegateVoidVar1[runtime.Context, any],
+	args []any,
+) (future async.Future) {
 	task := _Task{
 		typ:          TaskType_Call,
 		fun:          fun,
@@ -67,13 +74,13 @@ func (q *_TaskQueue) enqueueCall(fun generic.FuncVar0[any, async.Ret], action ge
 		delegate:     delegate,
 		delegateVoid: delegateVoid,
 		args:         args,
-		asyncRet:     async.NewAsyncRet(),
+		future:       async.NewFutureChan(),
 	}
 
 	defer func() {
 		if panicInfo := recover(); panicInfo != nil {
 			q.stats[TaskType_Call].rejected.Add(1)
-			asyncRet = async.Return(task.asyncRet, async.NewRet(nil, ErrTaskQueueClosed))
+			future = async.Return(task.future, async.NewResult(nil, ErrTaskQueueClosed))
 		}
 	}()
 
@@ -83,24 +90,24 @@ func (q *_TaskQueue) enqueueCall(fun generic.FuncVar0[any, async.Ret], action ge
 		select {
 		case q.boundedChan <- task:
 			q.stats[TaskType_Call].pending.Add(1)
-			return task.asyncRet
+			return task.future.Out()
 		default:
 			q.stats[TaskType_Call].rejected.Add(1)
-			return async.Return(task.asyncRet, async.NewRet(nil, ErrTaskQueueFull))
+			return async.Return(task.future, async.NewResult(nil, ErrTaskQueueFull))
 		}
 	}
 
 	if q.unboundedChan != nil {
 		q.unboundedChan.In() <- task
 		q.stats[TaskType_Call].pending.Add(1)
-		return task.asyncRet
+		return task.future.Out()
 	}
 
 	q.stats[TaskType_Call].rejected.Add(1)
-	return async.Return(task.asyncRet, async.NewRet(nil, ErrTaskQueueClosed))
+	return async.Return(task.future, async.NewResult(nil, ErrTaskQueueClosed))
 }
 
-func (q *_TaskQueue) enqueueFrame(ctx context.Context, action generic.ActionVar0[any], done chan struct{}) bool {
+func (q *_TaskQueue) enqueueFrame(ctx context.Context, action generic.ActionVar1[runtime.Context, any], done chan struct{}) bool {
 	task := _Task{
 		typ:    TaskType_Frame,
 		action: action,

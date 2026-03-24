@@ -30,11 +30,11 @@ import (
 
 type iWorker interface {
 	// Run 运行
-	Run() async.AsyncRet
+	Run() async.Future
 	// Terminate 停止
-	Terminate() async.AsyncRet
+	Terminate() async.Future
 	// Terminated 已停止
-	Terminated() async.AsyncRet
+	Terminated() async.Future
 	// Play 播放指定时长
 	Play(ctx context.Context, delta time.Duration) error
 	// PlayAt 播放至指定位置

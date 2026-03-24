@@ -23,7 +23,6 @@ import (
 	"sync/atomic"
 
 	"git.golaxy.org/core/event"
-	"git.golaxy.org/core/utils/async"
 	"git.golaxy.org/core/utils/corectx"
 	"git.golaxy.org/core/utils/generic"
 	"git.golaxy.org/core/utils/iface"
@@ -61,7 +60,7 @@ type Runtime interface {
 	corectx.CurrentContextProvider
 	corectx.ConcurrentContextProvider
 	reinterpret.InstanceProvider
-	async.Callee
+	runtime.Callee
 }
 
 type iRuntime interface {

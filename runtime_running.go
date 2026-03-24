@@ -32,7 +32,7 @@ import (
 )
 
 // Run 运行
-func (rt *RuntimeBehavior) Run() async.AsyncRet {
+func (rt *RuntimeBehavior) Run() async.Future {
 	ctx := rt.ctx
 
 	select {
@@ -60,12 +60,12 @@ func (rt *RuntimeBehavior) Run() async.AsyncRet {
 }
 
 // Terminate 停止
-func (rt *RuntimeBehavior) Terminate() async.AsyncRet {
+func (rt *RuntimeBehavior) Terminate() async.Future {
 	return rt.ctx.Terminate()
 }
 
 // Terminated 已停止
-func (rt *RuntimeBehavior) Terminated() async.AsyncRet {
+func (rt *RuntimeBehavior) Terminated() async.Future {
 	return rt.ctx.Terminated()
 }
 
@@ -284,10 +284,10 @@ func (rt *RuntimeBehavior) runTask(task _Task) {
 	switch task.typ {
 	case TaskType_Call:
 		rt.emitEventRunningEvent(runtime.RunningEvent_RunCallBegin)
-		task.run(rt.ctx.AutoRecover(), rt.ctx.ReportError())
+		task.run(rt.ctx)
 		rt.emitEventRunningEvent(runtime.RunningEvent_RunCallEnd)
 	case TaskType_Frame:
-		task.run(rt.ctx.AutoRecover(), rt.ctx.ReportError())
+		task.run(rt.ctx)
 	}
 	rt.taskQueue.complete(task.typ)
 }
