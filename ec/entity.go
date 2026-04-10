@@ -88,6 +88,7 @@ type iEntity interface {
 	init(options EntityOptions)
 	withContext(ctx context.Context)
 	getOptions() *EntityOptions
+	getInstance() Entity
 	setId(id id.Id)
 	setPT(prototype EntityPT)
 	setContext(ctx iface.Cache)
@@ -225,6 +226,10 @@ func (entity *EntityBehavior) getOptions() *EntityOptions {
 	return &entity.options
 }
 
+func (entity *EntityBehavior) getInstance() Entity {
+	return entity.options.InstanceFace.Iface
+}
+
 func (entity *EntityBehavior) setId(id id.Id) {
 	entity.id = id
 }
@@ -290,8 +295,4 @@ func (entity *EntityBehavior) managedRuntimeLateUpdateHandle(lateUpdateHandle ev
 
 func (entity *EntityBehavior) managedUnbindRuntimeHandles() {
 	event.UnbindHandles(entity.managedRuntimeHandles[:])
-}
-
-func (entity *EntityBehavior) getInstance() Entity {
-	return entity.options.InstanceFace.Iface
 }

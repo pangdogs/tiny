@@ -64,7 +64,7 @@ import (
 	5.提取失败会返回false。
 */
 func As[T any](entity ec.Entity) (*T, bool) {
-	target := types.NewT[T]()
+	target := types.New[T]()
 
 	if err := InjectRV(entity, reflect.ValueOf(target)); err != nil {
 		return nil, false
@@ -103,7 +103,7 @@ func As[T any](entity ec.Entity) (*T, bool) {
 	5.提取失败会panic。
 */
 func Cast[T any](entity ec.Entity) *T {
-	target := types.NewT[T]()
+	target := types.New[T]()
 
 	if err := InjectRV(entity, reflect.ValueOf(target)); err != nil {
 		exception.Panicf("%w: incorrect cast, %w", exception.ErrTiny, err)

@@ -92,6 +92,7 @@ type Context interface {
 type iContext interface {
 	init(options ContextOptions)
 	getOptions() *ContextOptions
+	getInstance() Context
 	emitEventRunningEvent(runningEvent RunningEvent, args ...any)
 	setFrame(frame Frame)
 	setCallee(callee Callee)
@@ -246,6 +247,10 @@ func (ctx *ContextBehavior) getOptions() *ContextOptions {
 	return &ctx.options
 }
 
+func (ctx *ContextBehavior) getInstance() Context {
+	return ctx.options.InstanceFace.Iface
+}
+
 func (ctx *ContextBehavior) emitEventRunningEvent(runningEvent RunningEvent, args ...any) {
 	_EmitEventContextRunningEvent(ctx, ctx.getInstance(), runningEvent, args...)
 
@@ -266,8 +271,4 @@ func (ctx *ContextBehavior) setCallee(callee Callee) {
 
 func (ctx *ContextBehavior) getScoped() *atomic.Bool {
 	return &ctx.scoped
-}
-
-func (ctx *ContextBehavior) getInstance() Context {
-	return ctx.options.InstanceFace.Iface
 }

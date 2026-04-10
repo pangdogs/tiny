@@ -21,20 +21,21 @@ package tiny
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"sync"
 	"sync/atomic"
 
+	"git.golaxy.org/core/runtime"
 	"git.golaxy.org/core/utils/async"
 	"git.golaxy.org/core/utils/corectx"
+	"git.golaxy.org/core/utils/exception"
 	"git.golaxy.org/core/utils/generic"
-	"git.golaxy.org/tiny/runtime"
-	"git.golaxy.org/tiny/utils/exception"
 )
 
 var (
-	ErrAllFuturesExceeded = fmt.Errorf("%w: all futures exceeded deadline: %w", ErrTiny, context.DeadlineExceeded)
+	ErrNoFutureSucceeded = fmt.Errorf("%w: no future succeeded", ErrTiny)
 )
 
 // Await 异步等待结果返回
@@ -51,11 +52,19 @@ type AwaitDirector struct {
 	futures []async.Future
 }
 
-func (ad AwaitDirector) waitContext() (context.Context, context.CancelFunc) {
-	if len(ad.futures) > 1 {
-		return context.WithCancel(ad.rtCtx)
+func (ad AwaitDirector) singleFuture() (async.Future, bool) {
+	if len(ad.futures) != 1 {
+		return async.Future{}, false
 	}
-	return ad.rtCtx, nil
+	return ad.futures[0], true
+}
+
+func joinAwaitErrors(errs []error) error {
+	errs = slices.DeleteFunc(errs, func(err error) bool { return err == nil })
+	if len(errs) <= 0 {
+		return ErrNoFutureSucceeded
+	}
+	return fmt.Errorf("%w: %w", ErrNoFutureSucceeded, errors.Join(errs...))
 }
 
 // Any 异步等待任意一个结果返回，有返回值
@@ -70,7 +79,19 @@ func (ad AwaitDirector) Any(fun generic.FuncVar2[runtime.Context, async.Result, 
 		return async.Return(resultFuture, async.NewResult(nil, nil))
 	}
 
-	ctx, cancel := ad.waitContext()
+	if future, ok := ad.singleFuture(); ok {
+		go func() {
+			ret := future.Wait(ad.rtCtx)
+			nextFuture := ad.rtCtx.CallAsync(func(ctx runtime.Context, args ...any) async.Result {
+				return fun.UnsafeCall(ctx, ret, args...)
+			}, args...)
+
+			async.Return(resultFuture, nextFuture.Wait(ad.rtCtx))
+		}()
+		return resultFuture.Out()
+	}
+
+	ctx, cancel := context.WithCancel(ad.rtCtx)
 
 	var once atomic.Bool
 	var wg sync.WaitGroup
@@ -87,9 +108,7 @@ func (ad AwaitDirector) Any(fun generic.FuncVar2[runtime.Context, async.Result, 
 				return
 			}
 
-			if cancel != nil {
-				cancel()
-			}
+			cancel()
 
 			nextFuture := ad.rtCtx.CallAsync(func(ctx runtime.Context, args ...any) async.Result {
 				return fun.UnsafeCall(ctx, ret, args...)
@@ -103,15 +122,13 @@ func (ad AwaitDirector) Any(fun generic.FuncVar2[runtime.Context, async.Result, 
 	go func() {
 		wg.Wait()
 
-		if cancel != nil {
-			cancel()
-		}
+		cancel()
 
 		if once.Load() {
 			return
 		}
 
-		async.Return(resultFuture, async.NewResult(nil, ErrAllFuturesExceeded))
+		async.Return(resultFuture, async.NewResult(nil, joinAwaitErrors(nil)))
 	}()
 
 	return resultFuture.Out()
@@ -129,7 +146,19 @@ func (ad AwaitDirector) AnyVoid(fun generic.ActionVar2[runtime.Context, async.Re
 		return async.Return(resultFuture, async.NewResult(nil, nil))
 	}
 
-	ctx, cancel := ad.waitContext()
+	if future, ok := ad.singleFuture(); ok {
+		go func() {
+			ret := future.Wait(ad.rtCtx)
+			nextFuture := ad.rtCtx.CallVoidAsync(func(ctx runtime.Context, args ...any) {
+				fun.UnsafeCall(ctx, ret, args...)
+			}, args...)
+
+			async.Return(resultFuture, nextFuture.Wait(ad.rtCtx))
+		}()
+		return resultFuture.Out()
+	}
+
+	ctx, cancel := context.WithCancel(ad.rtCtx)
 
 	var once atomic.Bool
 	var wg sync.WaitGroup
@@ -146,9 +175,7 @@ func (ad AwaitDirector) AnyVoid(fun generic.ActionVar2[runtime.Context, async.Re
 				return
 			}
 
-			if cancel != nil {
-				cancel()
-			}
+			cancel()
 
 			nextFuture := ad.rtCtx.CallVoidAsync(func(ctx runtime.Context, args ...any) {
 				fun.UnsafeCall(ctx, ret, args...)
@@ -162,15 +189,13 @@ func (ad AwaitDirector) AnyVoid(fun generic.ActionVar2[runtime.Context, async.Re
 	go func() {
 		wg.Wait()
 
-		if cancel != nil {
-			cancel()
-		}
+		cancel()
 
 		if once.Load() {
 			return
 		}
 
-		async.Return(resultFuture, async.NewResult(nil, ErrAllFuturesExceeded))
+		async.Return(resultFuture, async.NewResult(nil, joinAwaitErrors(nil)))
 	}()
 
 	return resultFuture.Out()
@@ -188,28 +213,12 @@ func (ad AwaitDirector) OK(fun generic.FuncVar2[runtime.Context, async.Result, a
 		return async.Return(resultFuture, async.NewResult(nil, nil))
 	}
 
-	ctx, cancel := ad.waitContext()
-
-	var once atomic.Bool
-	var wg sync.WaitGroup
-
-	for i := range ad.futures {
-		wg.Add(1)
-
-		go func(future async.Future) {
-			defer wg.Done()
-
-			ret := future.Wait(ctx)
+	if future, ok := ad.singleFuture(); ok {
+		go func() {
+			ret := future.Wait(ad.rtCtx)
 			if !ret.OK() {
+				async.Return(resultFuture, async.NewResult(nil, joinAwaitErrors([]error{ret.Error})))
 				return
-			}
-
-			if !once.CompareAndSwap(false, true) {
-				return
-			}
-
-			if cancel != nil {
-				cancel()
 			}
 
 			nextFuture := ad.rtCtx.CallAsync(func(ctx runtime.Context, args ...any) async.Result {
@@ -217,22 +226,53 @@ func (ad AwaitDirector) OK(fun generic.FuncVar2[runtime.Context, async.Result, a
 			}, args...)
 
 			async.Return(resultFuture, nextFuture.Wait(ad.rtCtx))
+		}()
+		return resultFuture.Out()
+	}
 
-		}(ad.futures[i])
+	ctx, cancel := context.WithCancel(ad.rtCtx)
+
+	var once atomic.Bool
+	var wg sync.WaitGroup
+	errs := make([]error, len(ad.futures))
+
+	for i := range ad.futures {
+		wg.Add(1)
+
+		go func(future async.Future, errRef *error) {
+			defer wg.Done()
+
+			ret := future.Wait(ctx)
+			if !ret.OK() {
+				*errRef = ret.Error
+				return
+			}
+
+			if !once.CompareAndSwap(false, true) {
+				return
+			}
+
+			cancel()
+
+			nextFuture := ad.rtCtx.CallAsync(func(ctx runtime.Context, args ...any) async.Result {
+				return fun.UnsafeCall(ctx, ret, args...)
+			}, args...)
+
+			async.Return(resultFuture, nextFuture.Wait(ad.rtCtx))
+
+		}(ad.futures[i], &errs[i])
 	}
 
 	go func() {
 		wg.Wait()
 
-		if cancel != nil {
-			cancel()
-		}
+		cancel()
 
 		if once.Load() {
 			return
 		}
 
-		async.Return(resultFuture, async.NewResult(nil, ErrAllFuturesExceeded))
+		async.Return(resultFuture, async.NewResult(nil, joinAwaitErrors(errs)))
 	}()
 
 	return resultFuture.Out()
@@ -250,28 +290,12 @@ func (ad AwaitDirector) OKVoid(fun generic.ActionVar2[runtime.Context, async.Res
 		return async.Return(resultFuture, async.NewResult(nil, nil))
 	}
 
-	ctx, cancel := ad.waitContext()
-
-	var once atomic.Bool
-	var wg sync.WaitGroup
-
-	for i := range ad.futures {
-		wg.Add(1)
-
-		go func(future async.Future) {
-			defer wg.Done()
-
-			ret := future.Wait(ctx)
+	if future, ok := ad.singleFuture(); ok {
+		go func() {
+			ret := future.Wait(ad.rtCtx)
 			if !ret.OK() {
+				async.Return(resultFuture, async.NewResult(nil, joinAwaitErrors([]error{ret.Error})))
 				return
-			}
-
-			if !once.CompareAndSwap(false, true) {
-				return
-			}
-
-			if cancel != nil {
-				cancel()
 			}
 
 			nextFuture := ad.rtCtx.CallVoidAsync(func(ctx runtime.Context, args ...any) {
@@ -279,22 +303,53 @@ func (ad AwaitDirector) OKVoid(fun generic.ActionVar2[runtime.Context, async.Res
 			}, args...)
 
 			async.Return(resultFuture, nextFuture.Wait(ad.rtCtx))
+		}()
+		return resultFuture.Out()
+	}
 
-		}(ad.futures[i])
+	ctx, cancel := context.WithCancel(ad.rtCtx)
+
+	var once atomic.Bool
+	var wg sync.WaitGroup
+	errs := make([]error, len(ad.futures))
+
+	for i := range ad.futures {
+		wg.Add(1)
+
+		go func(future async.Future, errRef *error) {
+			defer wg.Done()
+
+			ret := future.Wait(ctx)
+			if !ret.OK() {
+				*errRef = ret.Error
+				return
+			}
+
+			if !once.CompareAndSwap(false, true) {
+				return
+			}
+
+			cancel()
+
+			nextFuture := ad.rtCtx.CallVoidAsync(func(ctx runtime.Context, args ...any) {
+				fun.UnsafeCall(ctx, ret, args...)
+			}, args...)
+
+			async.Return(resultFuture, nextFuture.Wait(ad.rtCtx))
+
+		}(ad.futures[i], &errs[i])
 	}
 
 	go func() {
 		wg.Wait()
 
-		if cancel != nil {
-			cancel()
-		}
+		cancel()
 
 		if once.Load() {
 			return
 		}
 
-		async.Return(resultFuture, async.NewResult(nil, ErrAllFuturesExceeded))
+		async.Return(resultFuture, async.NewResult(nil, joinAwaitErrors(errs)))
 	}()
 
 	return resultFuture.Out()
@@ -310,6 +365,18 @@ func (ad AwaitDirector) All(fun generic.FuncVar2[runtime.Context, []async.Result
 
 	if len(ad.futures) <= 0 {
 		return async.Return(resultFuture, async.NewResult(nil, nil))
+	}
+
+	if future, ok := ad.singleFuture(); ok {
+		go func() {
+			rets := []async.Result{future.Wait(ad.rtCtx)}
+			nextFuture := ad.rtCtx.CallAsync(func(ctx runtime.Context, args ...any) async.Result {
+				return fun.UnsafeCall(ctx, rets, args...)
+			}, args...)
+
+			async.Return(resultFuture, nextFuture.Wait(ad.rtCtx))
+		}()
+		return resultFuture.Out()
 	}
 
 	rets := make([]async.Result, len(ad.futures))
@@ -349,6 +416,18 @@ func (ad AwaitDirector) AllVoid(fun generic.ActionVar2[runtime.Context, []async.
 		return async.Return(resultFuture, async.NewResult(nil, nil))
 	}
 
+	if future, ok := ad.singleFuture(); ok {
+		go func() {
+			rets := []async.Result{future.Wait(ad.rtCtx)}
+			nextFuture := ad.rtCtx.CallVoidAsync(func(ctx runtime.Context, args ...any) {
+				fun.UnsafeCall(ctx, rets, args...)
+			}, args...)
+
+			async.Return(resultFuture, nextFuture.Wait(ad.rtCtx))
+		}()
+		return resultFuture.Out()
+	}
+
 	rets := make([]async.Result, len(ad.futures))
 	var wg sync.WaitGroup
 
@@ -384,6 +463,23 @@ func (ad AwaitDirector) Transform(fun generic.FuncVar2[runtime.Context, async.Re
 
 	if len(ad.futures) <= 0 {
 		return async.YieldBreak(resultFuture)
+	}
+
+	if future, ok := ad.singleFuture(); ok {
+		go func() {
+			defer async.YieldBreak(resultFuture)
+
+			for ret := range future.Chan() {
+				nextFuture := ad.rtCtx.CallAsync(func(ctx runtime.Context, args ...any) async.Result {
+					return fun.UnsafeCall(ctx, ret, args...)
+				}, args...)
+
+				if !async.YieldReturn(ad.rtCtx, resultFuture, nextFuture.Wait(ad.rtCtx)) {
+					return
+				}
+			}
+		}()
+		return resultFuture.Out()
 	}
 
 	var wg sync.WaitGroup
@@ -424,6 +520,20 @@ func (ad AwaitDirector) Foreach(fun generic.ActionVar2[runtime.Context, async.Re
 
 	if len(ad.futures) <= 0 {
 		return async.Return(resultFuture, async.NewResult(nil, nil))
+	}
+
+	if future, ok := ad.singleFuture(); ok {
+		go func() {
+			for ret := range future.Chan() {
+				nextFuture := ad.rtCtx.CallVoidAsync(func(ctx runtime.Context, args ...any) {
+					fun.UnsafeCall(ctx, ret, args...)
+				}, args...)
+
+				nextFuture.Wait(ad.rtCtx)
+			}
+			async.Return(resultFuture, async.NewResult(nil, nil))
+		}()
+		return resultFuture.Out()
 	}
 
 	var wg sync.WaitGroup
