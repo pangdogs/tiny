@@ -155,14 +155,28 @@ Component 的正常启用链：
 
 `Born -> Attached -> Awaking -> Enabling -> Starting -> Alive`
 
+Component 的启停分支与运行期单独移除链：
+
+`Enabling / Starting / Alive -> Idle -> Starting -> Alive`
+
+`Detaching -> Shutting -> Disabling -> Dead -> Destroyed`
+
 `Attached` 表示 Component 尚未进入 `Awake`。正常激活会逐个推进 Component；启用
 `ComponentAwakeOnFirstTouch` 后，激活期间的业务查询或依赖注入可以提前执行目标组件
 尚未执行的 `Awake`，但不会提前其 `OnEnable` 或 `Start`。
 
-禁用 Component 会使其进入 `Idle`；再次启用会重新执行 `OnEnable` 并经 `Starting`
-回到 `Alive`，但 `Start` 不会重复执行。单独删除 Component 会经过 `Detaching`，随
-Entity 销毁时则可直接进入 `Shutting`。`Shut`、`OnDisable` 和 `Dispose` 分别只与已经
-进入的 `Start`、`OnEnable` 和 `Awake` 配对。
+`Enabling` 是首次启用阶段；从 `Idle` 重新启用时，`OnEnable` 在当前 `Idle` 状态执行，
+随后经 `Starting` 回到 `Alive`，但 `Start` 不会重复执行。普通禁用在当前活动状态执行
+配对的 `OnDisable` 后进入 `Idle`；`Disabling` 仅用于组件移除或随 Entity 销毁。
+
+单独删除 Component 会经过 `Detaching`，随 Entity 销毁时则可直接进入 `Shutting`。
+完整的单独移除链仅在 Entity 处于 `Awaking` 至 `Alive` 时由 Runtime 推进；其他阶段仍会
+从组件表移除，但不执行 Runtime 生命周期回调。`Shut`、`OnDisable` 和 `Dispose` 分别只
+与已经进入的 `Start`、`OnEnable` 和 `Awake` 配对。
+
+`SetEnabled` 会立即改变启用标记；已依附但尚未进入 `Enabling` 的组件只记录该标记，
+并在后续激活时应用。已经进入 `OnEnable` 阶段的组件禁用时会解绑帧更新并调用
+`OnDisable`；重新启用会再次调用 `OnEnable`，但不会重复调用 `Start`。
 
 可选生命周期接口包括：
 
@@ -170,6 +184,11 @@ Entity 销毁时则可直接进入 `Shutting`。`Shut`、`OnDisable` 和 `Dispos
 | --- | --- | --- | --- |
 | Entity | `Awake`、`Start` | `Update`、`LateUpdate` | `Shut`、`Dispose` |
 | Component | `Awake`、`OnEnable`、`Start` | `Update`、`LateUpdate` | `Shut`、`OnDisable`、`Dispose` |
+
+需要按结构体字段组合组件时，可以使用 `utils/assertion` 的 `As`、`Cast` 或 `Inject`。
+它支持通过 `ec:"组件名,完整组件原型名"` 标签选择组件，并可从当前 Runtime 的组件原型库
+构造缺失组件。该功能使用反射且可能修改实体，适合装配期、启动期或测试，不应用于帧更新
+热点。
 
 Entity 和 Component 的并发视图提供稳定身份、名称、原型、Runtime 投递入口和懒加载
 `AsyncScope`。对象销毁通知可通过生命周期事件或业务自己的轻量标记表达；Tiny 不为
@@ -237,6 +256,7 @@ Runtime 状态，应使用 `ContinueOn` 返回运行线程。
 | `ec` | Entity、Component、状态机、组件管理和并发视图 |
 | `ec/pt` | Runtime 本地的 Entity/Component Prototype 注册表 |
 | `runtime` | Context、EntityManager、EntityTree、add-in 和运行事件 |
+| `utils/assertion` | 基于组件名、原型和字段类型的反射组合与注入辅助 |
 | `utils/id` | Runtime 本地整数 ID |
 
 事件、Future、Scope、通用容器和扩展接口直接复用 `git.golaxy.org/core`，避免 Tiny
