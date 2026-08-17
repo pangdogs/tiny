@@ -23,29 +23,29 @@ import (
 	"reflect"
 	"slices"
 
+	"git.golaxy.org/core/utils/exception"
 	"git.golaxy.org/core/utils/generic"
 	"git.golaxy.org/core/utils/types"
 	"git.golaxy.org/tiny/ec"
-	"git.golaxy.org/tiny/utils/exception"
 )
 
-// EntityLib 实体原型库
+// EntityLib 是 Runtime 本地的实体原型注册表，不提供并发保护。
 type EntityLib interface {
 	EntityPTProvider
 
-	// ComponentLib 获取组件原型库
+	// ComponentLib 返回实体原型解析组件时使用的组件原型库。
 	ComponentLib() ComponentLib
-	// Declare 声明实体原型
+	// Declare 声明实体原型；同名声明会替换旧原型。
 	Declare(prototype any, comps ...any) ec.EntityPT
-	// Get 获取实体原型
+	// Get 按原型名查询实体原型。
 	Get(prototype string) (ec.EntityPT, bool)
-	// List 获取所有实体原型
+	// List 返回当前全部实体原型的副本。
 	List() []ec.EntityPT
 
 	IEntityLibEventTab
 }
 
-// NewEntityLib 创建实体原型库
+// NewEntityLib 使用 compLib 创建独立的空实体原型库；compLib 为 nil 时 panic。
 func NewEntityLib(compLib ComponentLib) EntityLib {
 	if compLib == nil {
 		exception.Panicf("%w: %w: compLib is nil", ErrPt, exception.ErrArgs)
@@ -65,17 +65,20 @@ type _EntityLib struct {
 	entityLibEventTab
 }
 
-// EntityLib 获取实体原型库
+// EntityLib 返回自身，以实现 EntityPTProvider。
 func (lib *_EntityLib) EntityLib() EntityLib {
 	return lib
 }
 
-// ComponentLib 获取组件原型库
+// ComponentLib 返回实体原型解析组件时使用的组件原型库。
 func (lib *_EntityLib) ComponentLib() ComponentLib {
 	return lib.compLib
 }
 
-// Declare 声明实体原型
+// Declare 声明实体原型；同名声明会替换旧原型并同步派发一次声明事件。
+//
+// prototype 支持原型名、EntityDescriptor 或其指针；comps 支持组件值、完整原型名、
+// ComponentDescriptor 或其指针。参数无效或引用未声明的组件原型时 panic。
 func (lib *_EntityLib) Declare(prototype any, comps ...any) ec.EntityPT {
 	if prototype == nil {
 		exception.Panicf("%w: %w: prototype is nil", ErrPt, exception.ErrArgs)
@@ -105,6 +108,7 @@ func (lib *_EntityLib) Declare(prototype any, comps ...any) ec.EntityPT {
 	entityPT := &_Entity{
 		prototype:                  entityDescr.Prototype,
 		componentAwakeOnFirstTouch: entityDescr.ComponentAwakeOnFirstTouch,
+		componentUniqueID:          entityDescr.ComponentUniqueID,
 		meta:                       entityDescr.Meta,
 	}
 
@@ -176,7 +180,7 @@ func (lib *_EntityLib) Declare(prototype any, comps ...any) ec.EntityPT {
 	return entityPT
 }
 
-// Get 获取实体原型
+// Get 按原型名查询实体原型。
 func (lib *_EntityLib) Get(prototype string) (ec.EntityPT, bool) {
 	entityPTIdx, ok := lib.entityPTIndex[prototype]
 	if !ok {
@@ -185,7 +189,7 @@ func (lib *_EntityLib) Get(prototype string) (ec.EntityPT, bool) {
 	return lib.entityPTList.Get(entityPTIdx).V, true
 }
 
-// List 获取所有实体原型
+// List 返回当前全部实体原型的副本。
 func (lib *_EntityLib) List() []ec.EntityPT {
 	return lib.entityPTList.ToSlice()
 }

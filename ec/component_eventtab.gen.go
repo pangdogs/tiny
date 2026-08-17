@@ -31,9 +31,9 @@ type IComponentEventTab interface {
 }
 
 var (
-	_componentEventTabId = event.DeclareEventTabIdT[componentEventTab]()
+	_componentEventTabId          = event.DeclareEventTabIdT[componentEventTab]()
 	EventComponentEnableChangedId = event.DeclareEventIdT[componentEventTab](0)
-	EventComponentDestroyId = event.DeclareEventIdT[componentEventTab](1)
+	EventComponentDestroyId       = event.DeclareEventIdT[componentEventTab](1)
 )
 
 type componentEventTab [2]event.Event

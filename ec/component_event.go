@@ -21,14 +21,15 @@
 //go:generate go run git.golaxy.org/core/event/eventc eventtab --name=componentEventTab
 package ec
 
-// EventComponentEnableChanged 事件：组件启用状态改变
+// EventComponentEnableChanged 在组件的启用标记发生变化后、所属实体处理该变化前同步派发。
 // +event-gen:export_emit=0
 // +event-tab-gen:recursion=allow
 type EventComponentEnableChanged interface {
 	OnComponentEnableChanged(comp Component, enable bool)
 }
 
-// EventComponentDestroy 事件：组件销毁
+// EventComponentDestroy 在 Component.Destroy 接受有效销毁请求后、进入实体移除流程前同步派发。
+// 该事件只表示显式销毁请求；随所属 Entity 销毁不会触发，也不表示组件已完成移除。
 // +event-gen:export_emit=0
 // +event-tab-gen:recursion=allow
 type EventComponentDestroy interface {

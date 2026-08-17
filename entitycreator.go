@@ -21,19 +21,21 @@ package tiny
 
 import (
 	"git.golaxy.org/core/utils/corectx"
+	"git.golaxy.org/core/utils/exception"
 	"git.golaxy.org/core/utils/iface"
 	"git.golaxy.org/core/utils/meta"
 	"git.golaxy.org/core/utils/option"
 	"git.golaxy.org/tiny/ec"
 	"git.golaxy.org/tiny/ec/pt"
 	"git.golaxy.org/tiny/runtime"
-	"git.golaxy.org/tiny/utils/exception"
+	"git.golaxy.org/tiny/utils/id"
 )
 
-// BuildEntity 创建实体
+// BuildEntity 创建绑定到 provider 当前运行时的实体构建器。
+// prototype 必须已经在所属 Runtime 的实体原型库中声明。
 func BuildEntity(provider corectx.CurrentContextProvider, prototype string) *EntityCreator {
 	if provider == nil {
-		exception.Panicf("%w: %w: provider is nil", ErrTiny, ErrArgs)
+		exception.Panicf("%w: %w: provider is nil", ErrCore, ErrArgs)
 	}
 	return &EntityCreator{
 		rtCtx:     runtime.Current(provider),
@@ -41,7 +43,7 @@ func BuildEntity(provider corectx.CurrentContextProvider, prototype string) *Ent
 	}
 }
 
-// EntityCreator 实体构建器
+// EntityCreator 基于已声明原型配置并创建实体。
 type EntityCreator struct {
 	rtCtx     runtime.Context
 	prototype string
@@ -49,25 +51,37 @@ type EntityCreator struct {
 	settings  []option.Setting[ec.EntityOptions]
 }
 
-// SetInstanceFace 设置实例，用于扩展实体能力
+// SetInstanceFace 设置用于扩展实体能力的自定义实例及其接口缓存。
 func (c *EntityCreator) SetInstanceFace(face iface.Face[ec.Entity]) *EntityCreator {
 	c.settings = append(c.settings, ec.With.InstanceFace(face))
 	return c
 }
 
-// SetInstance 设置实例，用于扩展实体能力
+// SetInstance 设置用于扩展实体能力的自定义实例。
 func (c *EntityCreator) SetInstance(instance ec.Entity) *EntityCreator {
 	c.settings = append(c.settings, ec.With.InstanceFace(iface.NewFaceT(instance)))
 	return c
 }
 
-// SetComponentAwakeOnFirstTouch 设置当实体组件首次被访问时，生命周期是否进入唤醒（Awake）
+// SetId 设置实体在 Runtime 内的本地 ID。
+func (c *EntityCreator) SetId(entityId id.Id) *EntityCreator {
+	c.settings = append(c.settings, ec.With.Id(entityId))
+	return c
+}
+
+// SetComponentAwakeOnFirstTouch 设置正常激活期间被访问的组件是否优先执行 Awake。
 func (c *EntityCreator) SetComponentAwakeOnFirstTouch(b bool) *EntityCreator {
 	c.settings = append(c.settings, ec.With.ComponentAwakeOnFirstTouch(b))
 	return c
 }
 
-// SetMeta 设置Meta信息
+// SetComponentUniqueID 设置是否为每个组件分配独立 ID。
+func (c *EntityCreator) SetComponentUniqueID(b bool) *EntityCreator {
+	c.settings = append(c.settings, ec.With.ComponentUniqueID(b))
+	return c
+}
+
+// SetMeta 用 dict 替换待创建实体的元数据。
 func (c *EntityCreator) SetMeta(dict map[string]any) *EntityCreator {
 	if c.meta == nil {
 		c.settings = append(c.settings, c.withMeta())
@@ -76,7 +90,7 @@ func (c *EntityCreator) SetMeta(dict map[string]any) *EntityCreator {
 	return c
 }
 
-// MergeMeta 合并Meta信息，如果存在则覆盖
+// MergeMeta 合并元数据；同名键会被覆盖。
 func (c *EntityCreator) MergeMeta(dict map[string]any) *EntityCreator {
 	for k, v := range dict {
 		if c.meta == nil {
@@ -87,7 +101,7 @@ func (c *EntityCreator) MergeMeta(dict map[string]any) *EntityCreator {
 	return c
 }
 
-// MergeMetaIfAbsent 合并Meta信息，如果存在则跳过
+// MergeMetaIfAbsent 合并元数据；已有的同名键保持不变。
 func (c *EntityCreator) MergeMetaIfAbsent(dict map[string]any) *EntityCreator {
 	for k, v := range dict {
 		if c.meta == nil {
@@ -98,7 +112,7 @@ func (c *EntityCreator) MergeMetaIfAbsent(dict map[string]any) *EntityCreator {
 	return c
 }
 
-// AssignMeta 赋值Meta信息
+// AssignMeta 直接采用 m 作为待创建实体的元数据。
 func (c *EntityCreator) AssignMeta(m meta.Meta) *EntityCreator {
 	if m == nil {
 		m = meta.New(nil)
@@ -110,10 +124,10 @@ func (c *EntityCreator) AssignMeta(m meta.Meta) *EntityCreator {
 	return c
 }
 
-// New 创建实体
+// New 根据原型构造实体，并将其加入绑定运行时的实体管理器。
 func (c *EntityCreator) New() (ec.Entity, error) {
 	if c.rtCtx == nil {
-		exception.Panicf("%w: rtCtx is nil", ErrTiny)
+		exception.Panicf("%w: rtCtx is nil", ErrCore)
 	}
 
 	entity := pt.For(c.rtCtx, c.prototype).Construct(c.settings...)

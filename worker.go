@@ -20,29 +20,22 @@
 package tiny
 
 import (
-	"context"
-	"time"
-
 	"git.golaxy.org/core/utils/async"
 	"git.golaxy.org/core/utils/generic"
 	"git.golaxy.org/tiny/runtime"
 )
 
 type iWorker interface {
-	// Run 运行
-	Run() async.Future
-	// Terminate 停止
-	Terminate() async.Future
-	// Terminated 已停止
-	Terminated() async.Future
-	// Play 播放指定时长
-	Play(ctx context.Context, delta time.Duration) error
-	// PlayAt 播放至指定位置
-	PlayAt(ctx context.Context, at time.Duration) error
-	// PlayFrames 播放指定帧数
-	PlayFrames(ctx context.Context, delta int64) error
-	// PlayFramesAt 播放至指定帧数
-	PlayFramesAt(ctx context.Context, at int64) error
-	// PlayIfContinue 指定函数判断是否继续播放
-	PlayIfContinue(ctx context.Context, continueFunc generic.Func1[runtime.Context, bool]) error
+	// Run 启动工作循环并返回终止信号。
+	Run() async.Signal
+	// Terminate 请求停止并返回终止信号。
+	Terminate() async.Signal
+	// Terminated 返回终止信号。
+	Terminated() async.Signal
+	// AdvanceFrames 在 Manual 模式下推进指定帧数。
+	AdvanceFrames(frames int64) async.Future
+	// AdvanceToFrame 在 Manual 模式下推进到目标帧。
+	AdvanceToFrame(frame int64) async.Future
+	// AdvanceWhile 在 Manual 模式下持续推进，直到 predicate 返回 false。
+	AdvanceWhile(predicate generic.Func1[runtime.Context, bool]) async.Future
 }

@@ -20,19 +20,21 @@
 package tiny
 
 import (
+	"context"
+	"time"
+
 	"git.golaxy.org/core/event"
 	"git.golaxy.org/core/extension"
 	"git.golaxy.org/core/utils/async"
 	"git.golaxy.org/core/utils/corectx"
+	"git.golaxy.org/core/utils/exception"
 	"git.golaxy.org/core/utils/generic"
-	"git.golaxy.org/tiny/ec"
-	"git.golaxy.org/tiny/ec/pt"
 	"git.golaxy.org/tiny/runtime"
-	"git.golaxy.org/tiny/utils/exception"
 )
 
-// Run 运行
-func (rt *RuntimeBehavior) Run() async.Future {
+// Run 在新 goroutine 中启动运行时循环，并返回运行时终止时完成的 Signal。
+// 运行时只能启动一次；上下文已经取消或运行时已经启动时会 panic。
+func (rt *RuntimeBehavior) Run() async.Signal {
 	ctx := rt.ctx
 
 	select {
@@ -59,13 +61,13 @@ func (rt *RuntimeBehavior) Run() async.Future {
 	return ctx.Terminated()
 }
 
-// Terminate 停止
-func (rt *RuntimeBehavior) Terminate() async.Future {
+// Terminate 请求停止运行时，并返回运行时终止时完成的 Signal。
+func (rt *RuntimeBehavior) Terminate() async.Signal {
 	return rt.ctx.Terminate()
 }
 
-// Terminated 已停止
-func (rt *RuntimeBehavior) Terminated() async.Future {
+// Terminated 返回运行时终止时完成的 Signal。
+func (rt *RuntimeBehavior) Terminated() async.Signal {
 	return rt.ctx.Terminated()
 }
 
@@ -84,8 +86,13 @@ func (rt *RuntimeBehavior) running() {
 
 	rt.loopStop(handles)
 
+	ctx.AsyncScope().Close()
+	_ = ctx.AsyncScope().Done().Wait(context.Background())
+
 	corectx.UnsafeContext(ctx).CloseWaitGroup()
 	ctx.WaitGroup().Wait()
+
+	rt.shutAddIn()
 
 	rt.emitEventRunningEvent(runtime.RunningEvent_Terminated)
 
@@ -121,52 +128,16 @@ func (rt *RuntimeBehavior) onAfterContextRunningEvent(ctx runtime.Context, runni
 		if rt.options.AutoRun {
 			rt.getInstance().Run()
 		}
-	case runtime.RunningEvent_Terminated:
-		rt.shutAddIn()
-		rt.shutEntityPT()
-		rt.shutComponentPT()
 	}
-}
-
-func (rt *RuntimeBehavior) initEntityPT() {
-	rt.managedEntityLibHandles[0] = pt.BindEventEntityLibDeclareEntityPT(rt.ctx.EntityLib(), pt.HandleEventEntityLibDeclareEntityPT(rt.onEntityLibDeclareEntityPT))
-
-	for _, entityPT := range rt.ctx.EntityLib().List() {
-		rt.emitEventRunningEvent(runtime.RunningEvent_EntityPTDeclared, entityPT)
-	}
-}
-
-func (rt *RuntimeBehavior) shutEntityPT() {
-	event.UnbindHandles(rt.managedEntityLibHandles[:])
-}
-
-func (rt *RuntimeBehavior) initComponentPT() {
-	rt.managedComponentLibHandles[0] = pt.BindEventComponentLibDeclareComponentPT(rt.ctx.EntityLib().ComponentLib(), pt.HandleEventComponentLibDeclareComponentPT(rt.onComponentLibDeclareComponentPT))
-
-	for _, compPT := range rt.ctx.EntityLib().ComponentLib().List() {
-		rt.emitEventRunningEvent(runtime.RunningEvent_ComponentPTDeclared, compPT)
-	}
-}
-
-func (rt *RuntimeBehavior) shutComponentPT() {
-	event.UnbindHandles(rt.managedComponentLibHandles[:])
-}
-
-func (rt *RuntimeBehavior) onEntityLibDeclareEntityPT(entityPT ec.EntityPT) {
-	rt.emitEventRunningEvent(runtime.RunningEvent_EntityPTDeclared, entityPT)
-}
-
-func (rt *RuntimeBehavior) onComponentLibDeclareComponentPT(compPT ec.ComponentPT) {
-	rt.emitEventRunningEvent(runtime.RunningEvent_ComponentPTDeclared, compPT)
 }
 
 func (rt *RuntimeBehavior) initAddIn() {
 	addInManager := runtime.UnsafeContext(rt.ctx).AddInManager()
 
-	rt.managedAddInManagerHandles[0] = extension.BindEventRuntimeInstallAddIn(addInManager, extension.HandleEventRuntimeInstallAddIn(rt.activateAddIn))
-	rt.managedAddInManagerHandles[1] = extension.BindEventRuntimeUninstallAddIn(addInManager, extension.HandleEventRuntimeUninstallAddIn(rt.deactivateAddIn))
+	rt.managedAddInManagerHandles[0] = runtime.BindEventInstallAddIn(addInManager, runtime.HandleEventInstallAddIn(rt.activateAddIn))
+	rt.managedAddInManagerHandles[1] = runtime.BindEventUninstallAddIn(addInManager, runtime.HandleEventUninstallAddIn(rt.deactivateAddIn))
 
-	statuses := extension.UnsafeRuntimeAddInManager(addInManager).List()
+	statuses := runtime.UnsafeAddInManager(addInManager).ListStatuses()
 	for i := range statuses {
 		rt.activateAddIn(statuses[i])
 	}
@@ -177,7 +148,7 @@ func (rt *RuntimeBehavior) shutAddIn() {
 
 	rt.managedAddInManagerHandles[0].Unbind()
 
-	statuses := extension.UnsafeRuntimeAddInManager(addInManager).List()
+	statuses := runtime.UnsafeAddInManager(addInManager).ListStatuses()
 	for i := len(statuses) - 1; i >= 0; i-- {
 		addInManager.Uninstall(statuses[i].Name())
 	}
@@ -185,7 +156,7 @@ func (rt *RuntimeBehavior) shutAddIn() {
 	rt.managedAddInManagerHandles[1].Unbind()
 }
 
-func (rt *RuntimeBehavior) activateAddIn(status extension.RuntimeAddInStatus) {
+func (rt *RuntimeBehavior) activateAddIn(status runtime.AddInStatus) {
 	if status.State() != extension.AddInState_Loaded {
 		return
 	}
@@ -206,7 +177,7 @@ func (rt *RuntimeBehavior) activateAddIn(status extension.RuntimeAddInStatus) {
 		return
 	}
 
-	extension.UnsafeRuntimeAddInStatus(status).Started()
+	runtime.UnsafeAddInStatus(status).Started()
 
 	if status.State() != extension.AddInState_Running {
 		rt.emitEventRunningEvent(runtime.RunningEvent_AddInActivationAborted, status)
@@ -220,13 +191,13 @@ func (rt *RuntimeBehavior) activateAddIn(status extension.RuntimeAddInStatus) {
 	}
 
 	if cb, ok := status.InstanceFace().Iface.(LifecycleAddInOnRuntimeRunningEvent); ok {
-		extension.UnsafeRuntimeAddInStatus(status).ManagedRuntimeRunningEventHandle(
+		runtime.UnsafeAddInStatus(status).ManagedRuntimeRunningEventHandle(
 			runtime.BindEventContextRunningEvent(rt.ctx, runtime.HandleEventContextRunningEvent(cb.OnContextRunningEvent)),
 		)
 	}
 }
 
-func (rt *RuntimeBehavior) deactivateAddIn(status extension.RuntimeAddInStatus) {
+func (rt *RuntimeBehavior) deactivateAddIn(status runtime.AddInStatus) {
 	if status.State() != extension.AddInState_Running {
 		return
 	}
@@ -266,30 +237,42 @@ func (rt *RuntimeBehavior) loopStop(handles []event.Handle) {
 }
 
 func (rt *RuntimeBehavior) mainLoop() {
-	if rt.frame == nil {
+	switch rt.options.Frame.Mode {
+	case FrameMode_Disabled:
 		rt.loopingNoFrame()
-	} else {
-		switch rt.frame.Mode() {
-		case runtime.FrameMode_Simulate:
-			rt.loopingSimulate()
-		case runtime.FrameMode_Manual:
-			rt.loopingManual()
-		default:
-			rt.loopingRealTime()
-		}
+	case FrameMode_Realtime:
+		rt.loopingRealTime()
+	case FrameMode_Manual:
+		rt.loopingManual()
 	}
 }
 
 func (rt *RuntimeBehavior) runTask(task _Task) {
+	rt.taskQueue.start(task.typ)
+	rt.lastProgressTime.Store(time.Now().UnixNano())
+
+	var panicked bool
+	defer func() {
+		if panicValue := recover(); panicValue != nil {
+			panicked = true
+			rt.finishTask(task.typ, panicked)
+			panic(panicValue)
+		}
+		rt.finishTask(task.typ, panicked)
+	}()
 	switch task.typ {
-	case TaskType_Call:
+	case TaskType_Submit, TaskType_Post:
 		rt.emitEventRunningEvent(runtime.RunningEvent_RunCallBegin)
-		task.run(rt.ctx)
+		panicked = task.run(rt.ctx)
 		rt.emitEventRunningEvent(runtime.RunningEvent_RunCallEnd)
 	case TaskType_Frame:
-		task.run(rt.ctx)
+		panicked = task.run(rt.ctx)
 	}
-	rt.taskQueue.complete(task.typ)
+}
+
+func (rt *RuntimeBehavior) finishTask(taskType TaskType, panicked bool) {
+	rt.taskQueue.complete(taskType, panicked)
+	rt.lastProgressTime.Store(time.Now().UnixNano())
 }
 
 func (rt *RuntimeBehavior) runGC() {

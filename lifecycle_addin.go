@@ -19,19 +19,17 @@
 
 package tiny
 
-import (
-	"git.golaxy.org/tiny/runtime"
-)
+import "git.golaxy.org/tiny/runtime"
 
-// LifecycleRuntimeAddInInit 运行时插件初始化回调，当插件安装在运行时上时，实现此接口即可使用
+// LifecycleRuntimeAddInInit 在运行时插件激活时调用。
 type LifecycleRuntimeAddInInit interface {
 	Init(rtCtx runtime.Context)
 }
 
-// LifecycleRuntimeAddInShut 运行时插件结束回调，当插件安装在运行时上时，实现此接口即可使用
+// LifecycleRuntimeAddInShut 在运行时插件停用时调用。
 type LifecycleRuntimeAddInShut interface {
 	Shut(rtCtx runtime.Context)
 }
 
-// LifecycleAddInOnRuntimeRunningEvent 运行事件，当插件安装在运行时上时，实现此接口即可使用
+// LifecycleAddInOnRuntimeRunningEvent 使运行时插件接收激活后的运行事件。
 type LifecycleAddInOnRuntimeRunningEvent = runtime.EventContextRunningEvent

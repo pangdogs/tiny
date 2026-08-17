@@ -21,20 +21,18 @@ package id
 
 import "strconv"
 
-var (
-	// Nil is a nil id.
-	Nil Id = 0
-)
+// Nil 表示未分配的 ID。
+const Nil Id = 0
 
-// Id represents a locally unique id.
+// Id 表示 Runtime 内的本地整数 ID。
 type Id int64
 
-// IsNil checks if an Id is nil.
+// IsNil 报告 ID 是否尚未分配。
 func (id Id) IsNil() bool {
 	return id == Nil
 }
 
-// String implements fmt.Stringer
+// String 返回十进制文本。
 func (id Id) String() string {
 	return strconv.FormatInt(int64(id), 10)
 }

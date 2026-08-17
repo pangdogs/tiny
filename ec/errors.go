@@ -22,9 +22,9 @@ package ec
 import (
 	"fmt"
 
-	"git.golaxy.org/tiny/utils/exception"
+	"git.golaxy.org/core/utils/exception"
 )
 
 var (
-	ErrEC = fmt.Errorf("%w: ec", exception.ErrTiny) // EC错误
+	ErrEC = fmt.Errorf("%w: ec", exception.ErrCore) // ErrEC 是实体—组件模块错误的共同根错误。
 )

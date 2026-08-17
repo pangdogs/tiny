@@ -1,0 +1,46 @@
+/*
+ * This file is part of Golaxy Distributed Service Development Framework.
+ *
+ * Golaxy Distributed Service Development Framework is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 2.1 of the License, or
+ * (at your option) any later version.
+ *
+ * Golaxy Distributed Service Development Framework is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Golaxy Distributed Service Development Framework. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Copyright (c) 2024 pangdogs.
+ */
+
+package runtime
+
+import "git.golaxy.org/core/event"
+
+// Deprecated: UnsafeAddInStatus 暴露运行时插件状态的生命周期操作，仅供 Tiny 内部使用。
+func UnsafeAddInStatus(status AddInStatus) _UnsafeAddInStatus {
+	return _UnsafeAddInStatus{AddInStatus: status}
+}
+
+type _UnsafeAddInStatus struct {
+	AddInStatus
+}
+
+// Started 将已加载插件标记为正在运行。
+func (u _UnsafeAddInStatus) Started() {
+	u.started()
+}
+
+// ManagedRuntimeRunningEventHandle 托管插件订阅的运行时事件句柄。
+func (u _UnsafeAddInStatus) ManagedRuntimeRunningEventHandle(runtimeRunningEventHandle event.Handle) {
+	u.managedRuntimeRunningEventHandle(runtimeRunningEventHandle)
+}
+
+// ManagedUnbindRuntimeHandles 解绑插件托管的全部运行时事件句柄。
+func (u _UnsafeAddInStatus) ManagedUnbindRuntimeHandles() {
+	u.managedUnbindRuntimeHandles()
+}

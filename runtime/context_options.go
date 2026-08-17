@@ -21,9 +21,7 @@ package runtime
 
 import (
 	"context"
-	"sync/atomic"
 
-	"git.golaxy.org/core/extension"
 	"git.golaxy.org/core/utils/generic"
 	"git.golaxy.org/core/utils/iface"
 	"git.golaxy.org/core/utils/option"
@@ -32,32 +30,28 @@ import (
 )
 
 type (
-	RunningEventCB = generic.ActionVar2[Context, RunningEvent, any] // 运行事件回调
+	RunningEventCB = generic.ActionVar2[Context, RunningEvent, any] // 运行时运行事件回调。
 )
 
-var (
-	idGenerator = &atomic.Int64{}
-)
-
-// ContextOptions 创建运行时上下文的所有选项
+// ContextOptions 定义创建运行时上下文时使用的选项。
 type ContextOptions struct {
-	InstanceFace   iface.Face[Context]           // 实例，用于扩展运行时上下文能力
-	Context        context.Context               // 父Context
-	AutoRecover    bool                          // 是否开启panic时自动恢复
-	ReportError    chan error                    // panic时错误写入的error channel
-	Name           string                        // 运行时名称
-	PersistId      uid.Id                        // 运行时持久化Id
-	IdGenerator    *atomic.Int64                 // 本地唯一Id生成器
-	EntityLib      pt.EntityLib                  // 实体原型库
-	AddInManager   extension.RuntimeAddInManager // 插件管理器
-	RunningEventCB RunningEventCB                // 运行事件回调
+	InstanceFace   iface.Face[Context] // 自定义上下文实例及其接口缓存。
+	Context        context.Context     // 父上下文；nil 时使用 context.Background。
+	AutoRecover    bool                // 回调发生 panic 时是否自动恢复。
+	ReportError    chan error          // 自动恢复后接收 panic 错误的通道。
+	Name           string              // 运行时名称。
+	PersistId      uid.Id              // 运行时持久化 ID；为 Nil 时自动生成。
+	EntityLib      pt.EntityLib        // 当前 Runtime 使用的实体原型库；nil 时创建独立原型库。
+	AddInManager   AddInManager        // 运行时插件管理器；nil 时创建默认管理器。
+	RunningEventCB RunningEventCB      // 运行时运行事件回调。
 }
 
+// With 提供 Runtime 上下文选项构造器。
 var With _ContextOption
 
 type _ContextOption struct{}
 
-// Default 默认值
+// Default 返回运行时上下文选项的默认设置。
 func (_ContextOption) Default() option.Setting[ContextOptions] {
 	return func(options *ContextOptions) {
 		With.InstanceFace(iface.Face[Context]{}).Apply(options)
@@ -65,28 +59,27 @@ func (_ContextOption) Default() option.Setting[ContextOptions] {
 		With.PanicHandling(false, nil).Apply(options)
 		With.Name("").Apply(options)
 		With.PersistId(uid.Nil).Apply(options)
-		With.IdGenerator(idGenerator).Apply(options)
 		With.EntityLib(nil).Apply(options)
 		With.AddInManager(nil).Apply(options)
 		With.RunningEventCB(nil).Apply(options)
 	}
 }
 
-// InstanceFace 实例，用于扩展运行时上下文能力
+// InstanceFace 设置用于扩展运行时上下文能力的自定义实例。
 func (_ContextOption) InstanceFace(face iface.Face[Context]) option.Setting[ContextOptions] {
 	return func(options *ContextOptions) {
 		options.InstanceFace = face
 	}
 }
 
-// Context 父Context
+// Context 设置父上下文。
 func (_ContextOption) Context(ctx context.Context) option.Setting[ContextOptions] {
 	return func(options *ContextOptions) {
 		options.Context = ctx
 	}
 }
 
-// PanicHandling panic时的处理方式
+// PanicHandling 设置回调 panic 的自动恢复和错误上报方式。
 func (_ContextOption) PanicHandling(autoRecover bool, reportError chan error) option.Setting[ContextOptions] {
 	return func(options *ContextOptions) {
 		options.AutoRecover = autoRecover
@@ -94,42 +87,35 @@ func (_ContextOption) PanicHandling(autoRecover bool, reportError chan error) op
 	}
 }
 
-// Name 运行时名称
+// Name 设置运行时名称。
 func (_ContextOption) Name(name string) option.Setting[ContextOptions] {
 	return func(options *ContextOptions) {
 		options.Name = name
 	}
 }
 
-// PersistId 运行时持久化Id
+// PersistId 设置运行时持久化 ID。
 func (_ContextOption) PersistId(id uid.Id) option.Setting[ContextOptions] {
 	return func(options *ContextOptions) {
 		options.PersistId = id
 	}
 }
 
-// IdGenerator 本地唯一Id生成器
-func (_ContextOption) IdGenerator(gen *atomic.Int64) option.Setting[ContextOptions] {
-	return func(options *ContextOptions) {
-		options.IdGenerator = gen
-	}
-}
-
-// EntityLib 实体原型库
+// EntityLib 设置当前 Runtime 使用的实体原型库。
 func (_ContextOption) EntityLib(lib pt.EntityLib) option.Setting[ContextOptions] {
 	return func(options *ContextOptions) {
 		options.EntityLib = lib
 	}
 }
 
-// AddInManager 插件管理器
-func (_ContextOption) AddInManager(mgr extension.RuntimeAddInManager) option.Setting[ContextOptions] {
+// AddInManager 设置运行时插件管理器。
+func (_ContextOption) AddInManager(mgr AddInManager) option.Setting[ContextOptions] {
 	return func(options *ContextOptions) {
 		options.AddInManager = mgr
 	}
 }
 
-// RunningEventCB 运行事件回调
+// RunningEventCB 设置运行时运行事件回调。
 func (_ContextOption) RunningEventCB(cb RunningEventCB) option.Setting[ContextOptions] {
 	return func(options *ContextOptions) {
 		options.RunningEventCB = cb

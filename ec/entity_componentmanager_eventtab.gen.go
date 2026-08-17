@@ -33,11 +33,11 @@ type IEntityComponentManagerEventTab interface {
 }
 
 var (
-	_entityComponentManagerEventTabId = event.DeclareEventTabIdT[entityComponentManagerEventTab]()
-	EventComponentManagerAddComponentsId = event.DeclareEventIdT[entityComponentManagerEventTab](0)
-	EventComponentManagerRemoveComponentId = event.DeclareEventIdT[entityComponentManagerEventTab](1)
+	_entityComponentManagerEventTabId             = event.DeclareEventTabIdT[entityComponentManagerEventTab]()
+	EventComponentManagerAddComponentsId          = event.DeclareEventIdT[entityComponentManagerEventTab](0)
+	EventComponentManagerRemoveComponentId        = event.DeclareEventIdT[entityComponentManagerEventTab](1)
 	EventComponentManagerComponentEnableChangedId = event.DeclareEventIdT[entityComponentManagerEventTab](2)
-	EventComponentManagerFirstTouchComponentId = event.DeclareEventIdT[entityComponentManagerEventTab](3)
+	EventComponentManagerFirstTouchComponentId    = event.DeclareEventIdT[entityComponentManagerEventTab](3)
 )
 
 type entityComponentManagerEventTab [4]event.Event

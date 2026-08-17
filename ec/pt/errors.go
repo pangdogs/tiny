@@ -22,9 +22,9 @@ package pt
 import (
 	"fmt"
 
-	"git.golaxy.org/tiny/utils/exception"
+	"git.golaxy.org/core/utils/exception"
 )
 
 var (
-	ErrPt = fmt.Errorf("%w: pt", exception.ErrTiny) // 原型错误
+	ErrPt = fmt.Errorf("%w: pt", exception.ErrCore) // ErrPt 是原型模块错误的共同根错误。
 )

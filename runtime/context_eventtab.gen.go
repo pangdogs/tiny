@@ -30,7 +30,7 @@ type IContextRunningEventTab interface {
 }
 
 var (
-	_contextRunningEventTabId = event.DeclareEventTabIdT[contextRunningEventTab]()
+	_contextRunningEventTabId  = event.DeclareEventTabIdT[contextRunningEventTab]()
 	EventContextRunningEventId = event.DeclareEventIdT[contextRunningEventTab](0)
 )
 

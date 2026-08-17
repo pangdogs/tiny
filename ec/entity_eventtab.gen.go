@@ -30,7 +30,7 @@ type IEntityEventTab interface {
 }
 
 var (
-	_entityEventTabId = event.DeclareEventTabIdT[entityEventTab]()
+	_entityEventTabId    = event.DeclareEventTabIdT[entityEventTab]()
 	EventEntityDestroyId = event.DeclareEventIdT[entityEventTab](0)
 )
 

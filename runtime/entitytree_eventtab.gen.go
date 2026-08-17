@@ -32,10 +32,10 @@ type IEntityTreeEventTab interface {
 }
 
 var (
-	_entityTreeEventTabId = event.DeclareEventTabIdT[entityTreeEventTab]()
-	EventEntityTreeAddNodeId = event.DeclareEventIdT[entityTreeEventTab](0)
+	_entityTreeEventTabId       = event.DeclareEventTabIdT[entityTreeEventTab]()
+	EventEntityTreeAddNodeId    = event.DeclareEventIdT[entityTreeEventTab](0)
 	EventEntityTreeRemoveNodeId = event.DeclareEventIdT[entityTreeEventTab](1)
-	EventEntityTreeMoveNodeId = event.DeclareEventIdT[entityTreeEventTab](2)
+	EventEntityTreeMoveNodeId   = event.DeclareEventIdT[entityTreeEventTab](2)
 )
 
 type entityTreeEventTab [3]event.Event

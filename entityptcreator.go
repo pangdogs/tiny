@@ -20,104 +20,115 @@
 package tiny
 
 import (
-	"git.golaxy.org/core/utils/corectx"
+	"git.golaxy.org/core/utils/exception"
 	"git.golaxy.org/core/utils/meta"
 	"git.golaxy.org/tiny/ec/pt"
-	"git.golaxy.org/tiny/runtime"
-	"git.golaxy.org/tiny/utils/exception"
-	"github.com/elliotchance/pie/v2"
 )
 
-// BuildEntityPT 创建实体原型
-func BuildEntityPT(provider corectx.CurrentContextProvider, prototype string) *EntityPTCreator {
+// BuildEntityPT 创建绑定到 provider 实体原型库的构建器。
+func BuildEntityPT(provider pt.EntityPTProvider, prototype string) *EntityPTCreator {
 	if provider == nil {
-		exception.Panicf("%w: %w: provider is nil", ErrTiny, ErrArgs)
+		exception.Panicf("%w: %w: provider is nil", ErrCore, ErrArgs)
 	}
 	return &EntityPTCreator{
-		rtCtx: runtime.Current(provider),
-		descr: pt.NewEntityDescriptor(prototype),
+		entityLib: provider.EntityLib(),
+		descr:     pt.NewEntityDescriptor(prototype),
 	}
 }
 
-// EntityPTCreator 实体原型构建器
+// EntityPTCreator 以链式方式配置并声明实体原型。
 type EntityPTCreator struct {
-	rtCtx runtime.Context
-	descr *pt.EntityDescriptor
-	comps []any
+	entityLib pt.EntityLib
+	descr     *pt.EntityDescriptor
+	comps     []any
 }
 
-// SetInstance 设置实例，用于扩展实体能力
+// SetInstance 设置该原型用于构造自定义实体的实例或反射类型。
 func (c *EntityPTCreator) SetInstance(instance any) *EntityPTCreator {
 	if c.descr == nil {
-		exception.Panicf("%w: descr is nil", ErrTiny)
+		exception.Panicf("%w: descr is nil", ErrCore)
 	}
 	c.descr.SetInstance(instance)
 	return c
 }
 
-// SetComponentAwakeOnFirstTouch 设置当实体组件首次被访问时，生命周期是否进入唤醒（Awake）
+// SetComponentAwakeOnFirstTouch 设置正常激活期间被访问的组件是否优先执行 Awake。
 func (c *EntityPTCreator) SetComponentAwakeOnFirstTouch(b bool) *EntityPTCreator {
 	if c.descr == nil {
-		exception.Panicf("%w: descr is nil", ErrTiny)
+		exception.Panicf("%w: descr is nil", ErrCore)
 	}
 	c.descr.SetComponentAwakeOnFirstTouch(b)
 	return c
 }
 
-// SetMeta 设置原型Meta信息
+// SetComponentUniqueID 设置是否为每个组件分配独立 ID。
+func (c *EntityPTCreator) SetComponentUniqueID(b bool) *EntityPTCreator {
+	if c.descr == nil {
+		exception.Panicf("%w: descr is nil", ErrCore)
+	}
+	c.descr.SetComponentUniqueID(b)
+	return c
+}
+
+// SetMeta 用 dict 替换原型元数据。
 func (c *EntityPTCreator) SetMeta(dict map[string]any) *EntityPTCreator {
 	if c.descr == nil {
-		exception.Panicf("%w: descr is nil", ErrTiny)
+		exception.Panicf("%w: descr is nil", ErrCore)
 	}
 	c.descr.SetMeta(dict)
 	return c
 }
 
-// MergeMeta 合并原型Meta信息，如果存在则覆盖
+// MergeMeta 合并原型元数据；同名键会被覆盖。
 func (c *EntityPTCreator) MergeMeta(dict map[string]any) *EntityPTCreator {
 	if c.descr == nil {
-		exception.Panicf("%w: descr is nil", ErrTiny)
+		exception.Panicf("%w: descr is nil", ErrCore)
 	}
 	c.descr.MergeMeta(dict)
 	return c
 }
 
-// MergeMetaIfAbsent 合并原型Meta信息，如果存在则跳过
+// MergeMetaIfAbsent 合并原型元数据；已有的同名键保持不变。
 func (c *EntityPTCreator) MergeMetaIfAbsent(dict map[string]any) *EntityPTCreator {
 	if c.descr == nil {
-		exception.Panicf("%w: descr is nil", ErrTiny)
+		exception.Panicf("%w: descr is nil", ErrCore)
 	}
 	c.descr.MergeIfAbsent(dict)
 	return c
 }
 
-// AssignMeta 赋值原型Meta信息
+// AssignMeta 直接采用 m 作为原型元数据。
 func (c *EntityPTCreator) AssignMeta(m meta.Meta) *EntityPTCreator {
 	if c.descr == nil {
-		exception.Panicf("%w: descr is nil", ErrTiny)
+		exception.Panicf("%w: descr is nil", ErrCore)
 	}
 	c.descr.AssignMeta(m)
 	return c
 }
 
-// AddComponent 添加组件
+// AddComponent 向原型追加一个内建组件。
+// comp 可以是组件实例或 ComponentDescriptor；未指定名称时使用组件类型名。
 func (c *EntityPTCreator) AddComponent(comp any, name ...string) *EntityPTCreator {
 	switch v := comp.(type) {
 	case pt.ComponentDescriptor, *pt.ComponentDescriptor:
 		c.comps = append(c.comps, v)
 	default:
-		c.comps = append(c.comps, pt.NewComponentDescriptor(comp).SetName(pie.First(name)))
+		var componentName string
+		if len(name) > 0 {
+			componentName = name[0]
+		}
+		c.comps = append(c.comps, pt.NewComponentDescriptor(comp).SetName(componentName))
 	}
 	return c
 }
 
-// Declare 声明实体原型
+// Declare 将构建结果注册到绑定的实体原型库。
 func (c *EntityPTCreator) Declare() {
-	if c.rtCtx == nil {
-		exception.Panicf("%w: rtCtx is nil", ErrTiny)
+	if c.entityLib == nil {
+		exception.Panicf("%w: entityLib is nil", ErrCore)
 	}
 	if c.descr == nil {
-		exception.Panicf("%w: descr is nil", ErrTiny)
+		exception.Panicf("%w: descr is nil", ErrCore)
 	}
-	c.rtCtx.EntityLib().Declare(c.descr, c.comps...)
+	c.entityLib.Declare(c.descr, c.comps...)
 }

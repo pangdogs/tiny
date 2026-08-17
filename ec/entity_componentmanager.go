@@ -24,46 +24,50 @@ import (
 	"slices"
 
 	"git.golaxy.org/core/event"
+	"git.golaxy.org/core/utils/exception"
 	"git.golaxy.org/core/utils/generic"
-	"git.golaxy.org/tiny/utils/exception"
+	"git.golaxy.org/core/utils/iface"
 	"git.golaxy.org/tiny/utils/id"
 )
 
-// iComponentManager 组件管理器接口
+// iComponentManager 定义实体的组件管理能力。
+//
+// 所有操作都应在实体所属 Runtime 的运行协程中执行。启用 ComponentAwakeOnFirstTouch
+// 后，正常激活期间的查询和遍历可能优先执行目标组件的 Awake，因而不是纯只读操作。
 type iComponentManager interface {
 	iiComponentManager
 
-	// AddComponent 添加组件，允许组件同名
+	// AddComponent 将 Born 状态的组件加入实体；允许同名组件，但同一实例不能重复加入。
 	AddComponent(name string, components ...Component) error
-	// RemoveComponent 使用名称删除组件，同名组件均会删除
+	// RemoveComponent 按名称请求删除全部同名组件。
 	RemoveComponent(name string)
-	// RemoveComponentById 使用组件Id删除组件
+	// RemoveComponentById 按 ID 请求删除组件；仅在启用组件唯一 ID 时有效。
 	RemoveComponentById(id id.Id)
-	// RemoveComponentByPT 使用组件原型删除组件，同原型组件均会删除
+	// RemoveComponentByPT 按原型名请求删除全部匹配组件。
 	RemoveComponentByPT(prototype string)
-	// GetComponent 使用名称查询组件，组件同名时，返回首个组件，不存在时返回nil
+	// GetComponent 返回首个同名组件；不存在时返回 nil。
 	GetComponent(name string) Component
-	// GetComponentById 使用组件Id查询组件，不存在时返回nil
+	// GetComponentById 按 ID 查询组件；未启用组件唯一 ID 或不存在时返回 nil。
 	GetComponentById(id id.Id) Component
-	// GetComponentByPT 使用组件原型查询组件，组件同原型时，返回首个组件，不存在时返回nil
+	// GetComponentByPT 返回首个使用指定原型的组件；不存在时返回 nil。
 	GetComponentByPT(prototype string) Component
-	// GetComponents 使用名称查询同名组件
+	// GetComponents 返回全部同名组件的快照。
 	GetComponents(name string) []Component
-	// GetComponentsByPT 使用组件原型查询同原型组件
+	// GetComponentsByPT 返回全部使用指定原型的组件快照。
 	GetComponentsByPT(prototype string) []Component
-	// RangeComponents 遍历所有组件
+	// RangeComponents 按加入顺序遍历组件；回调返回 false 时停止。
 	RangeComponents(fun generic.Func1[Component, bool])
-	// EachComponents 遍历每个组件
+	// EachComponents 按加入顺序遍历全部组件。
 	EachComponents(fun generic.Action1[Component])
-	// ReversedRangeComponents 反向遍历所有组件
+	// ReversedRangeComponents 按加入顺序的逆序遍历组件；回调返回 false 时停止。
 	ReversedRangeComponents(fun generic.Func1[Component, bool])
-	// ReversedEachComponents 反向遍历每个组件
+	// ReversedEachComponents 按加入顺序的逆序遍历全部组件。
 	ReversedEachComponents(fun generic.Action1[Component])
-	// FilterComponents 过滤并获取组件
+	// FilterComponents 返回满足条件的组件快照。
 	FilterComponents(fun generic.Func1[Component, bool]) []Component
-	// ListComponents 获取所有组件
+	// ListComponents 返回全部组件的快照。
 	ListComponents() []Component
-	// CountComponents 统计所有组件数量
+	// CountComponents 返回当前依附于实体的组件数。
 	CountComponents() int
 
 	IEntityComponentManagerEventTab
@@ -77,7 +81,12 @@ type iiComponentManager interface {
 	onComponentDestroyIfVersion(idx int, ver int64)
 }
 
-// AddComponent 添加组件，允许组件同名
+// AddComponent 将 Born 状态的组件加入实体；允许同名组件。
+//
+// components 为空、包含 nil、包含重复实例或组件不处于 Born 状态时返回错误。
+// Entity 处于 Awaking 至 Alive 时，Runtime 会通过添加事件同步推进新组件的生命周期。
+// Entity 进入 Leaving 后仍可添加组件，但 Runtime 不再推进其生命周期，组件保持 Attached；
+// Entity 进入 Dead 后组件管理器事件表已关闭，添加操作只修改本地组件表。
 func (entity *EntityBehavior) AddComponent(name string, components ...Component) error {
 	if len(components) <= 0 {
 		return fmt.Errorf("%w: %w: components is empty", ErrEC, exception.ErrArgs)
@@ -90,8 +99,14 @@ func (entity *EntityBehavior) AddComponent(name string, components ...Component)
 			return fmt.Errorf("%w: %w: component is nil", ErrEC, exception.ErrArgs)
 		}
 
-		if comp.State() != ComponentState_Birth {
+		if comp.State() != ComponentState_Born {
 			return fmt.Errorf("%w: invalid component state %q", ErrEC, comp.State())
+		}
+
+		for j := 0; j < i; j++ {
+			if iface.Iface2Cache(comp) == iface.Iface2Cache(components[j]) {
+				return fmt.Errorf("%w: %w: component at index %d duplicates index %d", ErrEC, exception.ErrArgs, i, j)
+			}
 		}
 	}
 
@@ -104,7 +119,7 @@ func (entity *EntityBehavior) AddComponent(name string, components ...Component)
 	return nil
 }
 
-// RemoveComponent 使用名称删除组件，同名组件均会删除
+// RemoveComponent 按名称请求删除全部可删除的同名组件。
 func (entity *EntityBehavior) RemoveComponent(name string) {
 	at, ok := entity.getComponentSlot(name)
 	if !ok {
@@ -124,7 +139,7 @@ func (entity *EntityBehavior) RemoveComponent(name string) {
 	}, at.Index())
 }
 
-// RemoveComponentById 使用组件Id删除组件
+// RemoveComponentById 按 ID 请求删除组件；未启用组件唯一 ID 时无效。
 func (entity *EntityBehavior) RemoveComponentById(id id.Id) {
 	slot, ok := entity.getComponentSlotById(id)
 	if !ok {
@@ -134,7 +149,7 @@ func (entity *EntityBehavior) RemoveComponentById(id id.Id) {
 	comp.Destroy()
 }
 
-// RemoveComponentByPT 使用组件原型删除组件，同原型组件均会删除
+// RemoveComponentByPT 按原型名请求删除全部可删除的匹配组件。
 func (entity *EntityBehavior) RemoveComponentByPT(prototype string) {
 	entity.componentList.TraversalEach(func(slot *generic.FreeSlot[Component]) {
 		comp := slot.V
@@ -147,7 +162,7 @@ func (entity *EntityBehavior) RemoveComponentByPT(prototype string) {
 	})
 }
 
-// GetComponent 使用名称查询组件，组件同名时，返回首个组件，不存在时返回nil
+// GetComponent 返回首个同名组件；不存在时返回 nil。
 func (entity *EntityBehavior) GetComponent(name string) Component {
 	if slot, ok := entity.getComponentSlot(name); ok {
 		return entity.touchComponent(slot.V)
@@ -155,7 +170,7 @@ func (entity *EntityBehavior) GetComponent(name string) Component {
 	return nil
 }
 
-// GetComponentById 使用组件Id查询组件，不存在时返回nil
+// GetComponentById 按 ID 查询组件；未启用组件唯一 ID 或不存在时返回 nil。
 func (entity *EntityBehavior) GetComponentById(id id.Id) Component {
 	if slot, ok := entity.getComponentSlotById(id); ok {
 		return entity.touchComponent(slot.V)
@@ -163,7 +178,7 @@ func (entity *EntityBehavior) GetComponentById(id id.Id) Component {
 	return nil
 }
 
-// GetComponentByPT 使用组件原型查询组件，组件同原型时，返回首个组件，不存在时返回nil
+// GetComponentByPT 返回首个使用指定原型的组件；不存在时返回 nil。
 func (entity *EntityBehavior) GetComponentByPT(prototype string) Component {
 	if slot, ok := entity.getComponentSlotByPT(prototype); ok {
 		return entity.touchComponent(slot.V)
@@ -171,7 +186,7 @@ func (entity *EntityBehavior) GetComponentByPT(prototype string) Component {
 	return nil
 }
 
-// GetComponents 使用名称查询同名组件
+// GetComponents 返回全部同名组件的快照。
 func (entity *EntityBehavior) GetComponents(name string) []Component {
 	at, ok := entity.getComponentSlot(name)
 	if !ok {
@@ -200,7 +215,7 @@ func (entity *EntityBehavior) GetComponents(name string) []Component {
 	return components
 }
 
-// GetComponentsByPT 使用组件原型查询同原型组件
+// GetComponentsByPT 返回全部使用指定原型的组件快照。
 func (entity *EntityBehavior) GetComponentsByPT(prototype string) []Component {
 	var components []Component
 
@@ -222,7 +237,7 @@ func (entity *EntityBehavior) GetComponentsByPT(prototype string) []Component {
 	return components
 }
 
-// RangeComponents 遍历所有组件
+// RangeComponents 按加入顺序遍历组件；回调返回 false 时停止。
 func (entity *EntityBehavior) RangeComponents(fun generic.Func1[Component, bool]) {
 	entity.componentList.Traversal(func(slot *generic.FreeSlot[Component]) bool {
 		comp := entity.touchComponent(slot.V)
@@ -233,7 +248,7 @@ func (entity *EntityBehavior) RangeComponents(fun generic.Func1[Component, bool]
 	})
 }
 
-// EachComponents 遍历每个组件
+// EachComponents 按加入顺序遍历全部组件。
 func (entity *EntityBehavior) EachComponents(fun generic.Action1[Component]) {
 	entity.componentList.TraversalEach(func(slot *generic.FreeSlot[Component]) {
 		comp := entity.touchComponent(slot.V)
@@ -244,7 +259,7 @@ func (entity *EntityBehavior) EachComponents(fun generic.Action1[Component]) {
 	})
 }
 
-// ReversedRangeComponents 反向遍历所有组件
+// ReversedRangeComponents 按加入顺序的逆序遍历组件；回调返回 false 时停止。
 func (entity *EntityBehavior) ReversedRangeComponents(fun generic.Func1[Component, bool]) {
 	entity.componentList.ReversedTraversal(func(slot *generic.FreeSlot[Component]) bool {
 		comp := entity.touchComponent(slot.V)
@@ -255,7 +270,7 @@ func (entity *EntityBehavior) ReversedRangeComponents(fun generic.Func1[Componen
 	})
 }
 
-// ReversedEachComponents 反向遍历每个组件
+// ReversedEachComponents 按加入顺序的逆序遍历全部组件。
 func (entity *EntityBehavior) ReversedEachComponents(fun generic.Action1[Component]) {
 	entity.componentList.ReversedTraversalEach(func(slot *generic.FreeSlot[Component]) {
 		comp := entity.touchComponent(slot.V)
@@ -266,7 +281,7 @@ func (entity *EntityBehavior) ReversedEachComponents(fun generic.Action1[Compone
 	})
 }
 
-// FilterComponents 过滤并获取组件
+// FilterComponents 返回满足条件的组件快照，并对返回项应用首次访问 Awake 优先规则。
 func (entity *EntityBehavior) FilterComponents(fun generic.Func1[Component, bool]) []Component {
 	var components []Component
 
@@ -294,7 +309,7 @@ func (entity *EntityBehavior) FilterComponents(fun generic.Func1[Component, bool
 	return components
 }
 
-// ListComponents 获取所有组件
+// ListComponents 返回全部组件的快照，并对返回项应用首次访问 Awake 优先规则。
 func (entity *EntityBehavior) ListComponents() []Component {
 	components := entity.componentList.ToSlice()
 
@@ -311,27 +326,27 @@ func (entity *EntityBehavior) ListComponents() []Component {
 	return components
 }
 
-// CountComponents 统计所有组件数量
+// CountComponents 返回当前依附于实体的组件数。
 func (entity *EntityBehavior) CountComponents() int {
 	return entity.componentList.Len() - entity.componentList.OrphanCount()
 }
 
-// EventComponentManagerAddComponents 事件：实体的组件管理器添加组件
+// EventComponentManagerAddComponents 返回组件批量添加事件。
 func (entity *EntityBehavior) EventComponentManagerAddComponents() event.IEvent {
 	return entity.entityComponentManagerEventTab.EventComponentManagerAddComponents()
 }
 
-// EventComponentManagerRemoveComponent 事件：实体的组件管理器删除组件
+// EventComponentManagerRemoveComponent 返回组件移除事件。
 func (entity *EntityBehavior) EventComponentManagerRemoveComponent() event.IEvent {
 	return entity.entityComponentManagerEventTab.EventComponentManagerRemoveComponent()
 }
 
-// EventComponentManagerComponentEnableChanged 事件：实体组件管理器中的组件启用状态改变
+// EventComponentManagerComponentEnableChanged 返回组件启用状态变更事件。
 func (entity *EntityBehavior) EventComponentManagerComponentEnableChanged() event.IEvent {
 	return entity.entityComponentManagerEventTab.EventComponentManagerComponentEnableChanged()
 }
 
-// EventComponentManagerFirstTouchComponent 事件：实体的组件管理器首次访问组件
+// EventComponentManagerFirstTouchComponent 返回组件首次访问事件。
 func (entity *EntityBehavior) EventComponentManagerFirstTouchComponent() event.IEvent {
 	return entity.entityComponentManagerEventTab.EventComponentManagerFirstTouchComponent()
 }
@@ -371,11 +386,11 @@ func (entity *EntityBehavior) onComponentDestroyIfVersion(idx int, ver int64) {
 		return
 	}
 
-	comp.setState(ComponentState_Detach)
+	comp.setState(ComponentState_Detaching)
 
 	_EmitEventComponentManagerRemoveComponent(entity, entity.getInstance(), comp)
 
-	comp.setState(ComponentState_Death)
+	comp.setState(ComponentState_Dead)
 
 	nameIdx, ok := entity.componentNameIndex.Get(comp.Name())
 	if ok && nameIdx == idx {
@@ -412,6 +427,10 @@ func (entity *EntityBehavior) getComponentSlot(name string) (*generic.FreeSlot[C
 }
 
 func (entity *EntityBehavior) getComponentSlotById(id id.Id) (*generic.FreeSlot[Component], bool) {
+	if !entity.options.ComponentUniqueID {
+		return nil, false
+	}
+
 	var compSlot *generic.FreeSlot[Component]
 
 	entity.componentList.Traversal(func(slot *generic.FreeSlot[Component]) bool {
@@ -460,12 +479,12 @@ func (entity *EntityBehavior) addComponent(name string, component Component) {
 		entity.componentNameIndex.Add(name, compSlot.Index())
 	}
 
-	component.setState(ComponentState_Attach)
+	component.setState(ComponentState_Attached)
 	component.setAttachedHandle(compSlot.Index(), compSlot.Version())
 }
 
 func (entity *EntityBehavior) touchComponent(comp Component) Component {
-	if entity.options.ComponentAwakeOnFirstTouch && comp.State() == ComponentState_Attach {
+	if entity.options.ComponentAwakeOnFirstTouch && comp.State() == ComponentState_Attached {
 		_EmitEventComponentManagerFirstTouchComponent(entity, entity.getInstance(), comp)
 	}
 

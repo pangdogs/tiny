@@ -23,28 +23,27 @@ import (
 	"encoding/json"
 	"reflect"
 
+	"git.golaxy.org/core/utils/exception"
 	"git.golaxy.org/tiny/ec"
-	"git.golaxy.org/tiny/utils/exception"
 )
 
 type _Component struct {
-	prototype     string
-	instanceRT    reflect.Type
-	builtin       *ec.BuiltinComponent
-	stringerCache string
+	prototype  string
+	instanceRT reflect.Type
+	builtin    *ec.BuiltinComponent
 }
 
-// Prototype 组件原型名称
+// Prototype 返回组件的完整原型名。
 func (pt *_Component) Prototype() string {
 	return pt.prototype
 }
 
-// InstanceRT 组件实例反射类型
+// InstanceRT 返回组件实例的指针类型。
 func (pt *_Component) InstanceRT() reflect.Type {
 	return reflect.PointerTo(pt.instanceRT)
 }
 
-// Construct 创建组件
+// Construct 创建处于 Born 状态的组件，并绑定其组件原型。
 func (pt *_Component) Construct() ec.Component {
 	compRV := reflect.New(pt.instanceRT)
 
@@ -55,16 +54,13 @@ func (pt *_Component) Construct() ec.Component {
 	return comp
 }
 
-// String implements fmt.Stringer
+// String 返回组件原型的 JSON 文本；编码失败时 panic。
 func (pt *_Component) String() string {
-	if pt.stringerCache == "" {
-		data, err := json.Marshal(pt)
-		if err != nil {
-			exception.Panicf("%w: unexpected failure marshaling component: %s", ErrPt, err)
-		}
-		pt.stringerCache = string(data)
+	data, err := json.Marshal(pt)
+	if err != nil {
+		exception.Panicf("%w: unexpected failure marshaling component: %s", ErrPt, err)
 	}
-	return pt.stringerCache
+	return string(data)
 }
 
 type _ComponentJSON struct {
@@ -72,7 +68,7 @@ type _ComponentJSON struct {
 	Instance  string `json:"instance"`
 }
 
-// MarshalJSON implements json.Marshaler
+// MarshalJSON 将组件原型编码为 JSON。
 func (pt *_Component) MarshalJSON() ([]byte, error) {
 	compStringer := _ComponentJSON{
 		Prototype: pt.prototype,

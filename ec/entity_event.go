@@ -21,7 +21,7 @@
 //go:generate go run git.golaxy.org/core/event/eventc eventtab --name=entityEventTab
 package ec
 
-// EventEntityDestroy 事件：实体销毁
+// EventEntityDestroy 在实体收到销毁请求时同步派发。
 // +event-gen:export_emit=0
 // +event-tab-gen:recursion=allow
 type EventEntityDestroy interface {

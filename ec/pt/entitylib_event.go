@@ -23,7 +23,7 @@ package pt
 
 import "git.golaxy.org/tiny/ec"
 
-// EventEntityLibDeclareEntityPT 事件：定义实体原型
+// EventEntityLibDeclareEntityPT 在实体原型声明或替换后同步派发。
 // +event-gen:export_emit=0
 // +event-tab-gen:recursion=allow
 type EventEntityLibDeclareEntityPT interface {

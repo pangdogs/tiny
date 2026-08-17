@@ -21,57 +21,64 @@ package tiny
 
 import (
 	"math"
+	"time"
 
 	"git.golaxy.org/core/utils/exception"
 	"git.golaxy.org/core/utils/option"
 	"git.golaxy.org/tiny/runtime"
 )
 
-// FrameOptions 帧的所有选项
+// FrameMode 定义 Runtime 如何驱动帧更新。
+type FrameMode int8
+
+const (
+	FrameMode_Disabled FrameMode = iota // 不产生 Update/LateUpdate。
+	FrameMode_Realtime                  // 按目标 FPS 自动推进。
+	FrameMode_Manual                    // 仅由 Advance 系列方法推进。
+)
+
+// FrameOptions 定义运行时帧循环的选项。
 type FrameOptions struct {
-	Enabled     bool              // 是否启用帧
-	Mode        runtime.FrameMode // 帧模式
-	TargetFPS   float64           // 目标FPS
-	TotalFrames int64             // 运行帧数上限
+	Mode        FrameMode // 帧推进模式。
+	TargetFPS   float64   // 目标 FPS；设置时会四舍五入为整数值。
+	TotalFrames int64     // 最大运行帧数；0 表示不限制。
 }
 
 type _FrameOption struct{}
 
-// Default 默认值
+// Default 返回帧选项的默认设置。
 func (_FrameOption) Default() option.Setting[FrameOptions] {
 	return func(options *FrameOptions) {
-		With.Frame.Enabled(true).Apply(options)
-		With.Frame.Mode(runtime.FrameMode_RealTime).Apply(options)
+		With.Frame.Mode(FrameMode_Realtime).Apply(options)
 		With.Frame.TargetFPS(30).Apply(options)
 		With.Frame.TotalFrames(0).Apply(options)
 	}
 }
 
-// Enabled 是否启用帧
-func (_FrameOption) Enabled(b bool) option.Setting[FrameOptions] {
+// Mode 设置帧推进模式。
+func (_FrameOption) Mode(mode FrameMode) option.Setting[FrameOptions] {
 	return func(options *FrameOptions) {
-		options.Enabled = b
+		switch mode {
+		case FrameMode_Disabled, FrameMode_Realtime, FrameMode_Manual:
+			options.Mode = mode
+		default:
+			exception.Panicf("%w: %w: invalid frame mode %d", runtime.ErrFrame, exception.ErrArgs, mode)
+		}
 	}
 }
 
-// Mode 帧模式
-func (_FrameOption) Mode(m runtime.FrameMode) option.Setting[FrameOptions] {
-	return func(o *FrameOptions) {
-		o.Mode = m
-	}
-}
-
-// TargetFPS 目标FPS
+// TargetFPS 设置目标 FPS；fps 会被四舍五入为 time.Ticker 可表示的整数值。
 func (_FrameOption) TargetFPS(fps float64) option.Setting[FrameOptions] {
 	return func(options *FrameOptions) {
-		if fps <= 0 {
-			exception.Panicf("%w: %w: TargetFPS  must be greater than 0", runtime.ErrFrame, exception.ErrArgs)
+		fps = math.Round(fps)
+		if math.IsNaN(fps) || math.IsInf(fps, 0) || fps < 1 || fps > float64(time.Second) {
+			exception.Panicf("%w: %w: TargetFPS must round to a value between 1 and %d", runtime.ErrFrame, exception.ErrArgs, time.Second)
 		}
-		options.TargetFPS = math.Round(fps)
+		options.TargetFPS = fps
 	}
 }
 
-// TotalFrames 运行帧数上限
+// TotalFrames 设置最大运行帧数；0 表示不限制，负值会导致 panic。
 func (_FrameOption) TotalFrames(v int64) option.Setting[FrameOptions] {
 	return func(options *FrameOptions) {
 		if v < 0 {

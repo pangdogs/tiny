@@ -22,25 +22,25 @@ package pt
 import (
 	"reflect"
 
+	"git.golaxy.org/core/utils/exception"
 	"git.golaxy.org/core/utils/generic"
 	"git.golaxy.org/core/utils/types"
 	"git.golaxy.org/tiny/ec"
-	"git.golaxy.org/tiny/utils/exception"
 )
 
-// ComponentLib 组件原型库
+// ComponentLib 是 Runtime 本地的组件原型注册表，不提供并发保护。
 type ComponentLib interface {
-	// Declare 声明组件原型
+	// Declare 声明组件原型；同一具名类型重复声明时返回已有原型。
 	Declare(comp any) ec.ComponentPT
-	// Get 查询组件原型
+	// Get 按完整原型名查询组件原型。
 	Get(prototype string) (ec.ComponentPT, bool)
-	// List 获取所有组件原型
+	// List 返回当前全部组件原型的副本。
 	List() []ec.ComponentPT
 
 	IComponentLibEventTab
 }
 
-// NewComponentLib 创建组件原型库
+// NewComponentLib 创建独立的空组件原型库。
 func NewComponentLib() ComponentLib {
 	return &_ComponentLib{
 		compPTNameIndex: map[string]int{},
@@ -54,7 +54,10 @@ type _ComponentLib struct {
 	componentLibEventTab
 }
 
-// Declare 声明组件原型
+// Declare 声明组件原型；同一具名类型重复声明时返回已有原型。
+//
+// comp 可以是组件值或 reflect.Type。匿名类型、nil 以及未实现 ec.Component 的类型
+// 会导致 panic。
 func (lib *_ComponentLib) Declare(comp any) ec.ComponentPT {
 	if comp == nil {
 		exception.Panicf("%w: %w: comp is nil", ErrPt, exception.ErrArgs)
@@ -79,8 +82,7 @@ func (lib *_ComponentLib) Declare(comp any) ec.ComponentPT {
 		exception.Panicf("%w: component %q not implement ec.Component", ErrPt, prototype)
 	}
 
-	compPTIdx, ok := lib.compPTNameIndex[prototype]
-	if ok {
+	if compPTIdx, ok := lib.compPTNameIndex[prototype]; ok {
 		return lib.compPTList.Get(compPTIdx).V
 	}
 
@@ -97,7 +99,7 @@ func (lib *_ComponentLib) Declare(comp any) ec.ComponentPT {
 	return compPT
 }
 
-// Get 查询组件原型
+// Get 按完整原型名查询组件原型。
 func (lib *_ComponentLib) Get(prototype string) (ec.ComponentPT, bool) {
 	compPTIdx, ok := lib.compPTNameIndex[prototype]
 	if !ok {
@@ -106,7 +108,7 @@ func (lib *_ComponentLib) Get(prototype string) (ec.ComponentPT, bool) {
 	return lib.compPTList.Get(compPTIdx).V, true
 }
 
-// List 获取所有组件原型
+// List 返回当前全部组件原型的副本。
 func (lib *_ComponentLib) List() []ec.ComponentPT {
 	return lib.compPTList.ToSlice()
 }

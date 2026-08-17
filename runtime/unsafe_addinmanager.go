@@ -17,35 +17,18 @@
  * Copyright (c) 2024 pangdogs.
  */
 
-package tiny
+package runtime
 
-func (rt *RuntimeBehavior) loopingSimulate() {
-	frame := rt.frame
+// Deprecated: UnsafeAddInManager 暴露运行时插件管理器的内部列表，仅供 Tiny 内部使用。
+func UnsafeAddInManager(mgr AddInManager) _UnsafeAddInManager {
+	return _UnsafeAddInManager{AddInManager: mgr}
+}
 
-	totalFrames := frame.TotalFrames()
-	gcFrames := int64(rt.options.GCInterval.Seconds() * frame.TargetFPS())
+type _UnsafeAddInManager struct {
+	AddInManager
+}
 
-loop:
-	for rt.frameLoopBegin(); ; {
-		curFrames := frame.CurFrames()
-
-		if totalFrames > 0 && curFrames >= totalFrames {
-			break
-		}
-
-		select {
-		case <-rt.ctx.Done():
-			break loop
-		default:
-		}
-
-		if curFrames%gcFrames == 0 {
-			rt.runGC()
-		}
-
-		rt.frameLoop(nil)
-	}
-
-	rt.runGC()
-	rt.frameLoopEnd()
+// ListStatuses 按安装顺序返回当前运行时插件状态的副本。
+func (mgr _UnsafeAddInManager) ListStatuses() []AddInStatus {
+	return mgr.getListStatuses()
 }

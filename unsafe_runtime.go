@@ -19,8 +19,7 @@
 
 package tiny
 
-import "git.golaxy.org/tiny/runtime"
-
+// Deprecated: UnsafeRuntime 暴露运行时内部能力，仅供框架集成代码使用。
 func UnsafeRuntime(runtime Runtime) _UnsafeRuntime {
 	return _UnsafeRuntime{
 		Runtime: runtime,
@@ -31,10 +30,12 @@ type _UnsafeRuntime struct {
 	Runtime
 }
 
-func (ur _UnsafeRuntime) Init(ctx runtime.Context, opts RuntimeOptions) {
-	ur.init(ctx, opts)
+// Options 返回运行时当前使用的选项。
+func (u _UnsafeRuntime) Options() *RuntimeOptions {
+	return u.getOptions()
 }
 
-func (ur _UnsafeRuntime) Options() *RuntimeOptions {
-	return ur.getOptions()
+// Instance 返回运行时的实际实例。
+func (u _UnsafeRuntime) Instance() Runtime {
+	return u.getInstance()
 }

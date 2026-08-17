@@ -32,8 +32,8 @@ type iRuntimeEventTab interface {
 
 var (
 	_runtimeEventTabId = event.DeclareEventTabIdT[runtimeEventTab]()
-	eventUpdateId = event.DeclareEventIdT[runtimeEventTab](0)
-	eventLateUpdateId = event.DeclareEventIdT[runtimeEventTab](1)
+	eventUpdateId      = event.DeclareEventIdT[runtimeEventTab](0)
+	eventLateUpdateId  = event.DeclareEventIdT[runtimeEventTab](1)
 )
 
 type runtimeEventTab [2]event.Event

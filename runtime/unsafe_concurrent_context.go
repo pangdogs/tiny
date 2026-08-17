@@ -19,9 +19,18 @@
 
 package runtime
 
-import "git.golaxy.org/tiny/ec/pt"
+// Deprecated: UnsafeConcurrentContext 暴露并发上下文的内部能力，仅供框架集成代码使用。
+func UnsafeConcurrentContext(context ConcurrentContext) _UnsafeConcurrentContext {
+	return _UnsafeConcurrentContext{
+		ConcurrentContext: context,
+	}
+}
 
-// EntityLib 获取实体原型库
-func (ctx *ContextBehavior) EntityLib() pt.EntityLib {
-	return ctx.options.EntityLib
+type _UnsafeConcurrentContext struct {
+	ConcurrentContext
+}
+
+// Instance 返回实际运行时上下文实例；调用者必须自行保证运行协程约束。
+func (u _UnsafeConcurrentContext) Instance() Context {
+	return u.getInstance()
 }

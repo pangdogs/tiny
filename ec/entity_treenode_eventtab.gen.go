@@ -34,12 +34,12 @@ type IEntityTreeNodeEventTab interface {
 }
 
 var (
-	_entityTreeNodeEventTabId = event.DeclareEventTabIdT[entityTreeNodeEventTab]()
-	EventTreeNodeAddChildId = event.DeclareEventIdT[entityTreeNodeEventTab](0)
-	EventTreeNodeRemoveChildId = event.DeclareEventIdT[entityTreeNodeEventTab](1)
+	_entityTreeNodeEventTabId   = event.DeclareEventTabIdT[entityTreeNodeEventTab]()
+	EventTreeNodeAddChildId     = event.DeclareEventIdT[entityTreeNodeEventTab](0)
+	EventTreeNodeRemoveChildId  = event.DeclareEventIdT[entityTreeNodeEventTab](1)
 	EventTreeNodeAttachParentId = event.DeclareEventIdT[entityTreeNodeEventTab](2)
 	EventTreeNodeDetachParentId = event.DeclareEventIdT[entityTreeNodeEventTab](3)
-	EventTreeNodeMoveToId = event.DeclareEventIdT[entityTreeNodeEventTab](4)
+	EventTreeNodeMoveToId       = event.DeclareEventIdT[entityTreeNodeEventTab](4)
 )
 
 type entityTreeNodeEventTab [5]event.Event

@@ -33,12 +33,12 @@ func (rt *RuntimeBehavior) loopingRealTime() {
 	var wg sync.WaitGroup
 
 	wg.Add(1)
-	go rt.scheduleFrameTasks(&wg, rt.frame.CurFrames()+1, rt.frame.TotalFrames(), rt.frame.TargetFPS())
+	go rt.scheduleFrameTasks(&wg, rt.frame.CurFrames(), rt.frame.TotalFrames(), rt.frame.TargetFPS())
 
 	taskOut := rt.taskQueue.out()
 
 loop:
-	for rt.frameLoopBegin(); ; {
+	for {
 		select {
 		case task := <-taskOut:
 			rt.runTask(task)
@@ -54,22 +54,11 @@ loop:
 	wg.Wait()
 	rt.taskQueue.close()
 
-loopEnding:
-	for {
-		select {
-		case task, ok := <-taskOut:
-			if !ok {
-				break loopEnding
-			}
-			rt.runTask(task)
-
-		default:
-			break loopEnding
-		}
+	for task := range taskOut {
+		rt.runTask(task)
 	}
 
 	rt.runGC()
-	rt.frameLoopEnd()
 }
 
 func (rt *RuntimeBehavior) scheduleFrameTasks(wg *sync.WaitGroup, curFrames, totalFrames int64, targetFPS float64) {
@@ -88,9 +77,10 @@ func (rt *RuntimeBehavior) scheduleFrameTasks(wg *sync.WaitGroup, curFrames, tot
 
 		select {
 		case <-updateTicker.C:
-			if rt.taskQueue.enqueueFrame(rt.ctx, rt.frameLoop, done) {
-				curFrames++
+			if !rt.taskQueue.enqueueFrame(rt.ctx, rt.frameLoop, done) {
+				return
 			}
+			curFrames++
 		case <-rt.ctx.Done():
 			return
 		}
@@ -98,8 +88,7 @@ func (rt *RuntimeBehavior) scheduleFrameTasks(wg *sync.WaitGroup, curFrames, tot
 }
 
 func (rt *RuntimeBehavior) frameLoop(runtime.Context, ...any) {
-	rt.frameLoopEnd()
-	rt.frameLoopBegin()
+	rt.runFrame()
 }
 
 func (rt *RuntimeBehavior) frameLoopBegin() {

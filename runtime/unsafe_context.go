@@ -19,13 +19,9 @@
 
 package runtime
 
-import (
-	"sync/atomic"
+import "sync/atomic"
 
-	"git.golaxy.org/core/extension"
-)
-
-// Deprecated: UnsafeContext 访问运行时上下文内部方法
+// Deprecated: UnsafeContext 暴露运行时上下文内部能力，仅供框架集成代码使用。
 func UnsafeContext(ctx Context) _UnsafeContext {
 	return _UnsafeContext{
 		Context: ctx,
@@ -36,42 +32,42 @@ type _UnsafeContext struct {
 	Context
 }
 
-// Options 获取运行时上下文所有选项
+// Options 返回运行时上下文当前使用的选项。
 func (u _UnsafeContext) Options() *ContextOptions {
 	return u.getOptions()
 }
 
-// Instance 获取实例
+// Instance 返回运行时上下文的实际实例。
 func (u _UnsafeContext) Instance() Context {
 	return u.getInstance()
 }
 
-// EmitEventRunningEvent 发送运行事件
+// EmitEventRunningEvent 直接派发运行时运行事件。
 func (u _UnsafeContext) EmitEventRunningEvent(runningEvent RunningEvent, args ...any) {
 	u.emitEventRunningEvent(runningEvent, args...)
 }
 
-// SetFrame 设置帧
+// SetFrame 设置运行时的帧统计接口。
 func (u _UnsafeContext) SetFrame(frame Frame) {
 	u.setFrame(frame)
 }
 
-// SetCallee 设置调用接受者
-func (u _UnsafeContext) SetCallee(callee Callee) {
-	u.setCallee(callee)
+// SetCaller 设置 Runtime 任务投递接收者。
+func (u _UnsafeContext) SetCaller(caller Caller) {
+	u.setCaller(caller)
 }
 
-// AddInManager 获取插件管理器
-func (u _UnsafeContext) AddInManager() extension.RuntimeAddInManager {
+// AddInManager 返回运行时专用插件管理器。
+func (u _UnsafeContext) AddInManager() AddInManager {
 	return u.getAddInManager()
 }
 
-// Scoped 获取作用域状态
+// Scoped 返回上下文是否已经绑定运行时作用域的原子标记。
 func (u _UnsafeContext) Scoped() *atomic.Bool {
 	return u.getScoped()
 }
 
-// GC GC
+// GC 清理当前运行时收集的对象。
 func (u _UnsafeContext) GC() {
 	u.gc()
 }

@@ -20,11 +20,11 @@
 package pt
 
 import (
+	"git.golaxy.org/core/utils/exception"
 	"git.golaxy.org/core/utils/meta"
-	"git.golaxy.org/tiny/utils/exception"
 )
 
-// NewEntityDescriptor 创建实体原型描述，用于注册实体原型
+// NewEntityDescriptor 创建实体原型描述；prototype 为空时 panic。
 func NewEntityDescriptor(prototype string) *EntityDescriptor {
 	if prototype == "" {
 		exception.Panicf("%w: %w: prototype is empty", ErrPt, exception.ErrArgs)
@@ -33,33 +33,45 @@ func NewEntityDescriptor(prototype string) *EntityDescriptor {
 		Prototype:                  prototype,
 		Instance:                   nil,
 		ComponentAwakeOnFirstTouch: false,
+		ComponentUniqueID:          false,
 		Meta:                       nil,
 	}
 }
 
-// EntityDescriptor 实体原型描述
+// EntityDescriptor 描述一个可注册的实体原型。
 type EntityDescriptor struct {
-	Prototype                  string    // 实体原型名称（必填）
-	Instance                   any       // 实体实例
-	ComponentAwakeOnFirstTouch bool      // 当实体组件首次被访问时，生命周期是否进入唤醒（Awake）
-	Meta                       meta.Meta // 原型Meta信息
+	Prototype                  string    // Prototype 是实体原型名，不能为空。
+	Instance                   any       // Instance 是自定义实体值或反射类型；nil 表示使用默认实体实现。
+	ComponentAwakeOnFirstTouch bool      // ComponentAwakeOnFirstTouch 指示正常激活期间被访问的组件是否优先执行 Awake。
+	ComponentUniqueID          bool      // ComponentUniqueID 指示是否为每个组件分配唯一 ID。
+	Meta                       meta.Meta // Meta 是实体原型元数据。
 }
 
+// SetInstance 设置自定义实体实例类型并返回 descr，以便链式调用。
 func (descr *EntityDescriptor) SetInstance(instance any) *EntityDescriptor {
 	descr.Instance = instance
 	return descr
 }
 
+// SetComponentAwakeOnFirstTouch 设置正常激活期间被访问的组件是否优先执行 Awake。
 func (descr *EntityDescriptor) SetComponentAwakeOnFirstTouch(b bool) *EntityDescriptor {
 	descr.ComponentAwakeOnFirstTouch = b
 	return descr
 }
 
+// SetComponentUniqueID 设置是否为每个组件分配唯一 ID。
+func (descr *EntityDescriptor) SetComponentUniqueID(b bool) *EntityDescriptor {
+	descr.ComponentUniqueID = b
+	return descr
+}
+
+// SetMeta 使用 dict 的副本替换元数据并返回 descr。
 func (descr *EntityDescriptor) SetMeta(dict map[string]any) *EntityDescriptor {
 	descr.Meta = meta.New(dict)
 	return descr
 }
 
+// MergeMeta 合并 dict；同名键会覆盖原值。
 func (descr *EntityDescriptor) MergeMeta(dict map[string]any) *EntityDescriptor {
 	for k, v := range dict {
 		descr.Meta.Add(k, v)
@@ -67,6 +79,7 @@ func (descr *EntityDescriptor) MergeMeta(dict map[string]any) *EntityDescriptor 
 	return descr
 }
 
+// MergeIfAbsent 合并 dict，但保留已有的同名键。
 func (descr *EntityDescriptor) MergeIfAbsent(dict map[string]any) *EntityDescriptor {
 	for k, v := range dict {
 		descr.Meta.TryAdd(k, v)
@@ -74,6 +87,7 @@ func (descr *EntityDescriptor) MergeIfAbsent(dict map[string]any) *EntityDescrip
 	return descr
 }
 
+// AssignMeta 直接绑定 m 并返回 descr；m 不会被复制。
 func (descr *EntityDescriptor) AssignMeta(m meta.Meta) *EntityDescriptor {
 	descr.Meta = m
 	return descr
