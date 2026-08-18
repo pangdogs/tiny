@@ -29,7 +29,7 @@ import (
 // EntityOptions 定义实体的构造选项。
 type EntityOptions struct {
 	InstanceFace               iface.Face[Entity] // InstanceFace 是用于扩展实体行为的实际实例。
-	Id                         id.Id              // Id 是 Runtime 内的本地实体 ID；Nil 表示由 Runtime 分配。
+	ID                         id.ID              // ID 是 Runtime 内的本地实体 ID；Nil 表示由 Runtime 分配。
 	ComponentAwakeOnFirstTouch bool               // ComponentAwakeOnFirstTouch 指示正常激活期间被访问的组件是否优先执行 Awake。
 	ComponentUniqueID          bool               // ComponentUniqueID 指示是否为每个组件分配唯一 ID。
 	Meta                       meta.Meta          // Meta 是随实体携带的元数据。
@@ -44,7 +44,7 @@ type _EntityOption struct{}
 func (_EntityOption) Default() option.Setting[EntityOptions] {
 	return func(options *EntityOptions) {
 		With.InstanceFace(iface.Face[Entity]{}).Apply(options)
-		With.Id(id.Nil).Apply(options)
+		With.ID(id.Nil).Apply(options)
 		With.ComponentAwakeOnFirstTouch(false).Apply(options)
 		With.ComponentUniqueID(false).Apply(options)
 		With.Meta(nil).Apply(options)
@@ -58,10 +58,10 @@ func (_EntityOption) InstanceFace(face iface.Face[Entity]) option.Setting[Entity
 	}
 }
 
-// Id 设置 Runtime 内的本地实体 ID。
-func (_EntityOption) Id(entityId id.Id) option.Setting[EntityOptions] {
+// ID 设置 Runtime 内的本地实体 ID。
+func (_EntityOption) ID(entityID id.ID) option.Setting[EntityOptions] {
 	return func(options *EntityOptions) {
-		options.Id = entityId
+		options.ID = entityID
 	}
 }
 

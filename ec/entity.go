@@ -65,8 +65,8 @@ type Entity interface {
 	corectx.CurrentContextProvider
 	reinterpret.InstanceProvider
 
-	// Id 返回实体 ID。
-	Id() id.Id
+	// ID 返回实体 ID。
+	ID() id.ID
 	// PT 返回实体原型；尚未绑定原型时返回空原型对象。
 	PT() EntityPT
 	// State 返回当前生命周期状态。
@@ -86,7 +86,7 @@ type Entity interface {
 type iEntity interface {
 	init(options EntityOptions)
 	getOptions() *EntityOptions
-	setId(id id.Id)
+	setID(id id.ID)
 	setPT(prototype EntityPT)
 	setState(state EntityState)
 	setReflected(v reflect.Value)
@@ -125,9 +125,9 @@ type EntityBehavior struct {
 	entityTreeNodeEventTab         entityTreeNodeEventTab
 }
 
-// Id 返回实体 ID。
-func (entity *EntityBehavior) Id() id.Id {
-	return entity.options.Id
+// ID 返回实体 ID。
+func (entity *EntityBehavior) ID() id.ID {
+	return entity.options.ID
 }
 
 // PT 返回实体原型；尚未绑定原型时返回空原型对象。
@@ -199,8 +199,8 @@ func (entity *EntityBehavior) getOptions() *EntityOptions {
 	return &entity.options
 }
 
-func (entity *EntityBehavior) setId(id id.Id) {
-	entity.options.Id = id
+func (entity *EntityBehavior) setID(id id.ID) {
+	entity.options.ID = id
 }
 
 func (entity *EntityBehavior) setPT(prototype EntityPT) {

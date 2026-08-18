@@ -41,8 +41,8 @@ type ConcurrentEntity interface {
 	corectx.AsyncScopeProvider
 	fmt.Stringer
 
-	// Id 返回实体 ID。
-	Id() id.Id
+	// ID 返回实体 ID。
+	ID() id.ID
 	// PT 返回实体原型。
 	PT() EntityPT
 }
@@ -109,7 +109,7 @@ func (entity *EntityBehavior) String() string {
 	if entity.runtimeCtx == nil {
 		return ""
 	}
-	return entity.Id().String()
+	return entity.ID().String()
 }
 
 func (entity *EntityBehavior) getInstance() Entity {

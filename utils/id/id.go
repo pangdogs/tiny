@@ -22,17 +22,17 @@ package id
 import "strconv"
 
 // Nil 表示未分配的 ID。
-const Nil Id = 0
+const Nil ID = 0
 
-// Id 表示 Runtime 内的本地整数 ID。
-type Id int64
+// ID 表示 Runtime 内的本地整数 ID。
+type ID int64
 
 // IsNil 报告 ID 是否尚未分配。
-func (id Id) IsNil() bool {
+func (id ID) IsNil() bool {
 	return id == Nil
 }
 
 // String 返回十进制文本。
-func (id Id) String() string {
+func (id ID) String() string {
 	return strconv.FormatInt(int64(id), 10)
 }

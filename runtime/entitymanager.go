@@ -39,9 +39,9 @@ type EntityManager interface {
 	// AddEntity 接管 Born 状态的实体；运行时已启动时会同步推进其生命周期。
 	AddEntity(entity ec.Entity) error
 	// RemoveEntity 按 ID 请求销毁实体；实体不存在时不执行任何操作。
-	RemoveEntity(id id.Id)
+	RemoveEntity(id id.ID)
 	// GetEntity 按 ID 查询本地实体。
-	GetEntity(id id.Id) (ec.Entity, bool)
+	GetEntity(id id.ID) (ec.Entity, bool)
 	// RangeEntities 按加入顺序遍历实体，回调返回 false 时停止。
 	RangeEntities(fun generic.Func1[ec.Entity, bool])
 	// EachEntities 按加入顺序遍历全部实体。
@@ -69,7 +69,7 @@ type _TreeNode struct {
 
 type _EntityManager struct {
 	ctx             Context
-	entityIdIndex   map[id.Id]int
+	entityIDIndex   map[id.ID]int
 	entityList      generic.FreeList[ec.Entity]
 	entityTreeNodes map[int]*_TreeNode
 
@@ -94,28 +94,28 @@ func (mgr *_EntityManager) AddEntity(entity ec.Entity) error {
 	}
 
 	if entity.State() != ec.EntityState_Born {
-		return fmt.Errorf("%w: invalid entity %q state %q", ErrEntityManager, entity.Id(), entity.State())
+		return fmt.Errorf("%w: invalid entity %q state %q", ErrEntityManager, entity.ID(), entity.State())
 	}
 
-	if entity.Id().IsNil() {
+	if entity.ID().IsNil() {
 		for {
-			entityId := mgr.ctx.GenId()
-			if _, exists := mgr.entityIdIndex[entityId]; exists {
+			entityID := mgr.ctx.GenID()
+			if _, exists := mgr.entityIDIndex[entityID]; exists {
 				continue
 			}
-			ec.UnsafeEntity(entity).SetId(entityId)
+			ec.UnsafeEntity(entity).SetID(entityID)
 			break
 		}
 	}
 
-	if _, ok := mgr.entityIdIndex[entity.Id()]; ok {
-		return fmt.Errorf("%w: entity %q already exists in entity-manager", ErrEntityManager, entity.Id())
+	if _, ok := mgr.entityIDIndex[entity.ID()]; ok {
+		return fmt.Errorf("%w: entity %q already exists in entity-manager", ErrEntityManager, entity.ID())
 	}
 
 	mgr.initEntity(entity)
 
 	entitySlot := mgr.entityList.PushBack(entity)
-	mgr.entityIdIndex[entity.Id()] = entitySlot.Index()
+	mgr.entityIDIndex[entity.ID()] = entitySlot.Index()
 
 	ec.UnsafeEntity(entity).SetState(ec.EntityState_Entered)
 	ec.UnsafeEntity(entity).SetEnteredHandle(entitySlot.Index(), entitySlot.Version())
@@ -129,8 +129,8 @@ func (mgr *_EntityManager) AddEntity(entity ec.Entity) error {
 }
 
 // RemoveEntity 按 ID 请求销毁实体；实体不存在时不执行任何操作。
-func (mgr *_EntityManager) RemoveEntity(id id.Id) {
-	slotIdx, ok := mgr.entityIdIndex[id]
+func (mgr *_EntityManager) RemoveEntity(id id.ID) {
+	slotIdx, ok := mgr.entityIDIndex[id]
 	if !ok {
 		return
 	}
@@ -139,8 +139,8 @@ func (mgr *_EntityManager) RemoveEntity(id id.Id) {
 }
 
 // GetEntity 按 ID 查询本地实体。
-func (mgr *_EntityManager) GetEntity(id id.Id) (ec.Entity, bool) {
-	slotIdx, ok := mgr.entityIdIndex[id]
+func (mgr *_EntityManager) GetEntity(id id.ID) (ec.Entity, bool) {
+	slotIdx, ok := mgr.entityIDIndex[id]
 	if !ok {
 		return nil, false
 	}
@@ -232,7 +232,7 @@ func (mgr *_EntityManager) init(ctx Context) {
 	}
 
 	mgr.ctx = ctx
-	mgr.entityIdIndex = map[id.Id]int{}
+	mgr.entityIDIndex = map[id.ID]int{}
 	mgr.entityTreeNodes = map[int]*_TreeNode{forestNodeIdx: {parent: forestNodeIdx}}
 
 	mgr.entityManagerEventTab.SetPanicHandling(mgr.ctx.AutoRecover(), mgr.ctx.ReportError())
@@ -282,11 +282,11 @@ func (mgr *_EntityManager) initComponent(entity ec.Entity, comp ec.Component) {
 	event.UnsafeEvent(comp.EventComponentDestroy()).Ctrl().SetPanicHandling(mgr.ctx.AutoRecover(), mgr.ctx.ReportError())
 
 	if ec.UnsafeEntity(entity).Options().ComponentUniqueID {
-		if comp.Id().IsNil() {
-			ec.UnsafeComponent(comp).SetId(mgr.ctx.GenId())
+		if comp.ID().IsNil() {
+			ec.UnsafeComponent(comp).SetID(mgr.ctx.GenID())
 		}
 	} else {
-		ec.UnsafeComponent(comp).SetId(entity.Id())
+		ec.UnsafeComponent(comp).SetID(entity.ID())
 	}
 }
 
@@ -312,13 +312,13 @@ func (mgr *_EntityManager) onEntityDestroyIfVersion(idx int, ver int64) {
 
 	ec.UnsafeEntity(entity).SetState(ec.EntityState_Leaving)
 
-	mgr.onEntityDestroyRemoveNode(entity.Id())
+	mgr.onEntityDestroyRemoveNode(entity.ID())
 
 	_EmitEventEntityManagerRemoveEntity(mgr, mgr, entity)
 
 	ec.UnsafeEntity(entity).SetState(ec.EntityState_Dead)
 
-	delete(mgr.entityIdIndex, entity.Id())
+	delete(mgr.entityIDIndex, entity.ID())
 	mgr.entityList.ReleaseIfVersion(idx, ver)
 
 	ec.UnsafeEntity(entity).SetState(ec.EntityState_Destroyed)

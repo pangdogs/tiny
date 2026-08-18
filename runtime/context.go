@@ -70,12 +70,12 @@ type Context interface {
 
 	// Name 返回运行时名称。
 	Name() string
-	// Id 返回运行时的持久化 ID。
-	Id() uid.Id
+	// ID 返回运行时的持久化 ID。
+	ID() uid.ID
 	// Reflected 返回实际运行时上下文实例的反射值。
 	Reflected() reflect.Value
-	// GenId 生成仅在当前 Runtime 内唯一的正整数 ID。
-	GenId() id.Id
+	// GenID 生成仅在当前 Runtime 内唯一的正整数 ID。
+	GenID() id.ID
 	// Frame 返回帧统计接口；未启用帧循环时返回 nil。
 	Frame() Frame
 	// EntityManager 返回当前运行时的本地实体管理器。
@@ -125,9 +125,9 @@ func (ctx *ContextBehavior) Name() string {
 	return ctx.options.Name
 }
 
-// Id 返回运行时的持久化 ID。
-func (ctx *ContextBehavior) Id() uid.Id {
-	return ctx.options.PersistId
+// ID 返回运行时的持久化 ID。
+func (ctx *ContextBehavior) ID() uid.ID {
+	return ctx.options.PersistID
 }
 
 // Reflected 返回实际运行时上下文实例的反射值。
@@ -135,11 +135,11 @@ func (ctx *ContextBehavior) Reflected() reflect.Value {
 	return ctx.reflected
 }
 
-// GenId 生成仅在当前 Runtime 内唯一的正整数 ID。
+// GenID 生成仅在当前 Runtime 内唯一的正整数 ID。
 // 该方法属于 Runtime 当前线程能力，不提供并发保护。
-func (ctx *ContextBehavior) GenId() id.Id {
+func (ctx *ContextBehavior) GenID() id.ID {
 	ctx.idGenerator++
-	return id.Id(ctx.idGenerator)
+	return id.ID(ctx.idGenerator)
 }
 
 // EntityLib 返回当前 Runtime 使用的实体原型库。
@@ -219,8 +219,8 @@ func (ctx *ContextBehavior) init(options ContextOptions) {
 		ctx.options.Context = context.Background()
 	}
 
-	if ctx.options.PersistId.IsNil() {
-		ctx.options.PersistId = uid.New()
+	if ctx.options.PersistID.IsNil() {
+		ctx.options.PersistID = uid.New()
 	}
 
 	if ctx.options.AddInManager == nil {

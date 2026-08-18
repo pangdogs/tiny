@@ -48,13 +48,13 @@ type iAddInManager interface {
 func NewAddInManager() AddInManager {
 	return &_AddInManager{
 		addInNameIndex: map[string]int{},
-		addInIdIndex:   map[uint64]int{},
+		addInIDIndex:   map[uint64]int{},
 	}
 }
 
 type _AddInManager struct {
 	addInNameIndex map[string]int
-	addInIdIndex   map[uint64]int
+	addInIDIndex   map[uint64]int
 	addInList      generic.FreeList[*_AddInStatus]
 
 	addInManagerEventTab
@@ -89,8 +89,8 @@ func (mgr *_AddInManager) Install(addInFace iface.FaceAny, name ...string) exten
 		exception.Panicf("%w: add-in %q is already installed", extension.ErrExtension, addInName)
 	}
 
-	id := extension.GenAddInId(addInName)
-	if existsIdx, ok := mgr.addInIdIndex[id]; ok {
+	id := extension.GenAddInID(addInName)
+	if existsIdx, ok := mgr.addInIDIndex[id]; ok {
 		exception.Panicf("%w: add-in %q id %d conflict with %q, rename required", extension.ErrExtension, addInName, id, mgr.addInList.Get(existsIdx).V.Name())
 	}
 
@@ -105,7 +105,7 @@ func (mgr *_AddInManager) Install(addInFace iface.FaceAny, name ...string) exten
 	status.idx = statusSlot.Index()
 	status.ver = statusSlot.Version()
 	mgr.addInNameIndex[addInName] = statusSlot.Index()
-	mgr.addInIdIndex[id] = statusSlot.Index()
+	mgr.addInIDIndex[id] = statusSlot.Index()
 
 	_EmitEventAddInStateChanged(mgr, status, extension.AddInState_Loaded)
 
@@ -136,9 +136,9 @@ func (mgr *_AddInManager) GetStatusByName(name string) (extension.AddInStatus, b
 	return mgr.addInList.Get(statusIdx).V, true
 }
 
-// GetStatusById 按 ID 查询当前已安装插件的状态信息。
-func (mgr *_AddInManager) GetStatusById(id uint64) (extension.AddInStatus, bool) {
-	statusIdx, ok := mgr.addInIdIndex[id]
+// GetStatusByID 按 ID 查询当前已安装插件的状态信息。
+func (mgr *_AddInManager) GetStatusByID(id uint64) (extension.AddInStatus, bool) {
+	statusIdx, ok := mgr.addInIDIndex[id]
 	if !ok {
 		return nil, false
 	}
@@ -178,7 +178,7 @@ func (mgr *_AddInManager) uninstallIfVersion(idx int, ver int64) {
 	}
 
 	delete(mgr.addInNameIndex, status.name)
-	delete(mgr.addInIdIndex, status.id)
+	delete(mgr.addInIDIndex, status.id)
 	mgr.addInList.ReleaseIfVersion(idx, ver)
 
 	status.setState(extension.AddInState_Unloaded)

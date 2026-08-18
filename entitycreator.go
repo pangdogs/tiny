@@ -63,9 +63,9 @@ func (c *EntityCreator) SetInstance(instance ec.Entity) *EntityCreator {
 	return c
 }
 
-// SetId 设置实体在 Runtime 内的本地 ID。
-func (c *EntityCreator) SetId(entityId id.Id) *EntityCreator {
-	c.settings = append(c.settings, ec.With.Id(entityId))
+// SetID 设置实体在 Runtime 内的本地 ID。
+func (c *EntityCreator) SetID(entityID id.ID) *EntityCreator {
+	c.settings = append(c.settings, ec.With.ID(entityID))
 	return c
 }
 

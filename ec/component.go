@@ -39,8 +39,8 @@ type Component interface {
 	ConcurrentComponent
 	corectx.CurrentContextProvider
 
-	// Id 返回组件 ID；未启用组件唯一 ID 时通常与 Entity ID 相同。
-	Id() id.Id
+	// ID 返回组件 ID；未启用组件唯一 ID 时通常与 Entity ID 相同。
+	ID() id.ID
 	// Builtin 返回组件的原型描述；实体原型内建组件包含其位置与配置。
 	// 由 ComponentPT 独立构造的组件通常返回 Offset=-1 的描述，未绑定原型时返回空描述。
 	Builtin() BuiltinComponent
@@ -68,7 +68,7 @@ type Component interface {
 
 type iComponent interface {
 	init(name string, entity Entity, instance Component)
-	setId(id id.Id)
+	setID(id id.ID)
 	setBuiltin(builtin *BuiltinComponent)
 	setState(state ComponentState)
 	setReflected(v reflect.Value)
@@ -88,7 +88,7 @@ const (
 
 // ComponentBehavior 提供 Component 的默认实现，扩展组件时应将其匿名嵌入自定义结构体。
 type ComponentBehavior struct {
-	id                    id.Id
+	id                    id.ID
 	builtin               *BuiltinComponent
 	name                  string
 	entity                Entity
@@ -108,8 +108,8 @@ type ComponentBehavior struct {
 	componentEventTab componentEventTab
 }
 
-// Id 返回组件 ID。
-func (comp *ComponentBehavior) Id() id.Id {
+// ID 返回组件 ID。
+func (comp *ComponentBehavior) ID() id.ID {
 	return comp.id
 }
 
@@ -225,7 +225,7 @@ func (comp *ComponentBehavior) init(name string, entity Entity, instance Compone
 	comp.enabled = true
 }
 
-func (comp *ComponentBehavior) setId(id id.Id) {
+func (comp *ComponentBehavior) setID(id id.ID) {
 	comp.id = id
 }
 
